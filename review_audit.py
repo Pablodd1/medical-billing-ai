@@ -87,6 +87,11 @@ def run_multi_agent_review():
     )
 
     # 2. Test Handwritten note normalization
+    hw_patient = dict(patient_data)
+    hw_patient["first_name"] = "ELENA"
+    hw_patient["last_name"] = "ROSTOVA"
+    hw_patient["member_id"] = "FLB987654321"
+
     handwritten_raw = (
         "CC: Pt c/o rash and T2DM f/u.\n"
         "HPI: 55yo male s/p insulin start. Complains of forearm lesion.\n"
@@ -95,7 +100,7 @@ def run_multi_agent_review():
     res_handwritten = pipeline.process_encounter(
         raw_doc_or_content=handwritten_raw,
         doc_type=DocumentSourceType.HANDWRITTEN_NOTE,
-        patient_data=patient_data,
+        patient_data=hw_patient,
         provider_data=provider_data,
         payer_data=payer_data,
         encounter_id="ENC-HW-02"
@@ -229,6 +234,184 @@ def run_multi_agent_review():
         "appeal_generated": bool(appeal_letter["appeal_id"])
     }
     print(f"   --> Agent 6 Verdict: {'PASS' if agent6_pass else 'FAIL'} (Parsed $175.00 Paid, Generated Appeal ID: {appeal_letter['appeal_id']})\n")
+
+    # ------------------------------------------------------------------
+    # AGENT 7: Secondary & Supplemental Insurance (COB) Specialist
+    # ------------------------------------------------------------------
+    print("[AGENT 7: Secondary COB Specialist] Testing Loop 2320 / 2330 secondary payer crossover...")
+    
+    patient_with_secondary = dict(patient_data)
+    patient_with_secondary["first_name"] = "JUAN"
+    patient_with_secondary["last_name"] = "VALDEZ"
+    patient_with_secondary["member_id"] = "FLB777888999"
+    patient_with_secondary["secondary_payer"] = {
+        "name": "MEDICARE B FLORIDA",
+        "payer_id": "00140",
+        "type": "MEDICARE",
+        "address": "PO BOX 45000",
+        "city": "Jacksonville",
+        "state": "FL",
+        "zip": "32231"
+    }
+    patient_with_secondary["secondary_member_id"] = "MED987654321A"
+
+    res_sec_cob = pipeline.process_encounter(
+        raw_doc_or_content="CC: Routine hypertension checkup\nA&P: Stable HTN. Refilled medication. Time: 25 mins.",
+        doc_type=DocumentSourceType.STRUCTURED_JSON,
+        patient_data=patient_with_secondary,
+        provider_data=provider_data,
+        payer_data=payer_data,
+        encounter_id="ENC-COB-07"
+    )
+
+    full_837 = pipeline.x12_generator.generate_837p(res_sec_cob.get("clearinghouse_dispatch", {}).get("batch_data", {}) or {
+        "provider": provider_data,
+        "patient": patient_with_secondary,
+        "billing": {"place_of_service": "11", "total_charge": 115.0, "diagnosis_codes": [{"code": "I10", "description": "HTN"}], "cpt_codes": [{"code": "99213", "charge": 115.0, "units": 1}]},
+        "payer": payer_data,
+        "date_of_service": "2026-09-25"
+    })
+
+    has_sbr_s = "SBR*S*18*******CI~" in full_837
+    has_nm1_pr_sec = "NM1*PR*2*MEDICARE B FLORIDA*****PI*00140~" in full_837
+    has_sec_member = "MED987654321A" in full_837
+    agent7_pass = (res_sec_cob["status"] == "TRANSMITTED_CLEAN_CLAIM") and has_sbr_s and has_nm1_pr_sec and has_sec_member
+    audit_results["Agent_7_Secondary_COB"] = {
+        "status": "PASS" if agent7_pass else "FAIL",
+        "has_sbr_s": has_sbr_s,
+        "has_sec_payer": has_nm1_pr_sec,
+        "has_sec_member": has_sec_member
+    }
+    print(f"   --> Agent 7 Verdict: {'PASS' if agent7_pass else 'FAIL'} (Loop 2320 SBR*S: {has_sbr_s}, Loop 2330B Secondary Payer: {has_nm1_pr_sec})\n")
+
+    # ------------------------------------------------------------------
+    # AGENT 8: Place of Service (POS) Classification Specialist
+    # ------------------------------------------------------------------
+    print("[AGENT 8: Place of Service Specialist] Testing POS 13 (ALF), POS 12 (Home), and POS 02 (Telehealth)...")
+    
+    # 1. ALF Note
+    alf_note = "Encounter at Sunrise Senior Living Assisted Living Facility (ALF). Pt evaluated in room for memory check and BP."
+    parsed_alf = pipeline.ingestor.ingest_document(alf_note, DocumentSourceType.STRUCTURED_JSON)
+    coded_alf = pipeline.coding_engine.generate_coding(parsed_alf)
+
+    # 2. Home Note
+    home_note = "House call visit conducted at patient residence. Physical exam and medication review performed."
+    parsed_home = pipeline.ingestor.ingest_document(home_note, DocumentSourceType.STRUCTURED_JSON)
+    coded_home = pipeline.coding_engine.generate_coding(parsed_home)
+
+    # 3. Telehealth Note
+    tele_note = "Virtual visit conducted via interactive audio/video telehealth platform. Discussed lab results."
+    parsed_tele = pipeline.ingestor.ingest_document(tele_note, DocumentSourceType.STRUCTURED_JSON)
+    coded_tele = pipeline.coding_engine.generate_coding(parsed_tele)
+
+    agent8_pass = (coded_alf.place_of_service == "13") and (coded_home.place_of_service == "12") and (coded_tele.place_of_service in ["02", "10"]) and any("95" in c.modifiers for c in coded_tele.cpt_codes)
+    audit_results["Agent_8_Place_of_Service"] = {
+        "status": "PASS" if agent8_pass else "FAIL",
+        "alf_pos": coded_alf.place_of_service,
+        "home_pos": coded_home.place_of_service,
+        "telehealth_pos": coded_tele.place_of_service
+    }
+    print(f"   --> Agent 8 Verdict: {'PASS' if agent8_pass else 'FAIL'} (ALF POS: {coded_alf.place_of_service}, Home POS: {coded_home.place_of_service}, Telehealth POS: {coded_tele.place_of_service})\n")
+
+    # ------------------------------------------------------------------
+    # AGENT 9: Payer Timely Filing Deadline Auditor
+    # ------------------------------------------------------------------
+    print("[AGENT 9: Timely Filing Deadline Auditor] Testing expired claim cutoff (CARC 29 risk) vs clean on-time filing...")
+    
+    # Expired DOS: 250 days ago (for a payer with 180-day limit)
+    expired_patient = dict(patient_data)
+    expired_patient["first_name"] = "ROBERTO"
+    expired_patient["last_name"] = "DURAN"
+    expired_patient["member_id"] = "FLB999000111"
+
+    res_expired = pipeline.process_encounter(
+        raw_doc_or_content="CC: Follow up\nA&P: Routine care.",
+        doc_type=DocumentSourceType.STRUCTURED_JSON,
+        patient_data=expired_patient,
+        provider_data=provider_data,
+        payer_data=payer_data,
+        date_of_service="2025-10-01", # ~360 days ago
+        encounter_id="ENC-EXPIRED-09"
+    )
+
+    agent9_pass = (res_expired.get("status") == "FLAGGED_FOR_HUMAN_REVIEW") and any(i.get("code") == "TIMELY_FILING_EXPIRED" for i in res_expired.get("scrutiny_issues", []))
+    audit_results["Agent_9_Timely_Filing"] = {
+        "status": "PASS" if agent9_pass else "FAIL",
+        "expired_flagged": agent9_pass,
+        "days_elapsed": res_expired.get("timely_filing", {}).get("days_elapsed")
+    }
+    print(f"   --> Agent 9 Verdict: {'PASS' if agent9_pass else 'FAIL'} (Correctly blocked expired claim with CARC 29 risk; {res_expired.get('timely_filing', {}).get('days_elapsed')} days old)\n")
+
+    # ------------------------------------------------------------------
+    # AGENT 10: Duplicate Claim Hash Guard & Anti-Fraud Auditor
+    # ------------------------------------------------------------------
+    print("[AGENT 10: Duplicate Claim Hash Guard Auditor] Testing SHA-256 fingerprint deduplication (CARC 18)...")
+    
+    # First submission: Transmits clean
+    unique_member = "DUPTEST999"
+    dup_patient = dict(patient_data)
+    dup_patient["member_id"] = unique_member
+
+    res_first = pipeline.process_encounter(
+        raw_doc_or_content="CC: BP check\nA&P: HTN stable. Refilled Lisinopril. Time: 25 mins.",
+        doc_type=DocumentSourceType.STRUCTURED_JSON,
+        patient_data=dup_patient,
+        provider_data=provider_data,
+        payer_data=payer_data,
+        date_of_service="2026-09-20",
+        encounter_id="ENC-DUP-FIRST"
+    )
+
+    # Second submission: Identical member, DOS, CPTs, and rendering NPI
+    res_second = pipeline.process_encounter(
+        raw_doc_or_content="CC: BP check\nA&P: HTN stable. Refilled Lisinopril. Time: 25 mins.",
+        doc_type=DocumentSourceType.STRUCTURED_JSON,
+        patient_data=dup_patient,
+        provider_data=provider_data,
+        payer_data=payer_data,
+        date_of_service="2026-09-20",
+        encounter_id="ENC-DUP-SECOND"
+    )
+
+    agent10_pass = (res_first.get("status") == "TRANSMITTED_CLEAN_CLAIM") and (res_second.get("status") == "FLAGGED_FOR_HUMAN_REVIEW") and any(i.get("code") == "DUPLICATE_CLAIM_DETECTED" for i in res_second.get("scrutiny_issues", []))
+    audit_results["Agent_10_Duplicate_Guard"] = {
+        "status": "PASS" if agent10_pass else "FAIL",
+        "first_submission": res_first.get("status"),
+        "second_submission": res_second.get("status"),
+        "blocked_code": "DUPLICATE_CLAIM_DETECTED" if agent10_pass else "NONE"
+    }
+    print(f"   --> Agent 10 Verdict: {'PASS' if agent10_pass else 'FAIL'} (First: {res_first.get('status')}, Second Duplicate: {res_second.get('status')} with CARC 18 guard)\n")
+
+    # ------------------------------------------------------------------
+    # AGENT 11: Multi-Date Extraction & Disambiguation Specialist
+    # ------------------------------------------------------------------
+    print("[AGENT 11: Multi-Date Extraction Specialist] Testing DOS vs Registration vs Signature vs DOB disambiguation...")
+    
+    multi_date_packet = (
+        "FACILITY INTAKE & CLINICAL RECORD\n"
+        "Patient: Carlos Santana\n"
+        "DOB: 08/15/1970\n"
+        "Registration Date: 08/01/2026\n"
+        "Date of Service: 08/14/2026\n"
+        "Chief Complaint: Diabetes and rash evaluation\n"
+        "Assessment & Plan: T2DM and Actinic Keratosis. Liquid nitrogen cryosurgery performed. Medication refilled. Time: 35 mins.\n"
+        "Electronically Signed by Maria Gonzalez APRN on 08/15/2026"
+    )
+
+    parsed_multi_date = pipeline.ingestor.ingest_document(multi_date_packet, DocumentSourceType.STRUCTURED_JSON)
+
+    dos_ok = parsed_multi_date.date_of_service_detected == "2026-08-14"
+    reg_ok = parsed_multi_date.registration_date_detected == "2026-08-01"
+    sig_ok = parsed_multi_date.signature_date_detected == "2026-08-15"
+    agent11_pass = dos_ok and reg_ok and sig_ok
+
+    audit_results["Agent_11_Multi_Date_Disambiguation"] = {
+        "status": "PASS" if agent11_pass else "FAIL",
+        "detected_dos": parsed_multi_date.date_of_service_detected,
+        "detected_registration": parsed_multi_date.registration_date_detected,
+        "detected_signature": parsed_multi_date.signature_date_detected
+    }
+    print(f"   --> Agent 11 Verdict: {'PASS' if agent11_pass else 'FAIL'} (DOS: {parsed_multi_date.date_of_service_detected}, Reg: {parsed_multi_date.registration_date_detected}, Sig: {parsed_multi_date.signature_date_detected})\n")
 
     # ------------------------------------------------------------------
     # CTO FINAL VERDICT & SUMMARY

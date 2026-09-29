@@ -1,18 +1,16 @@
-# ============================================
-# FILE: medical_billing_ai/scrutiny/scrutinizer.py
-# PURPOSE: 5-Tier Scrutiny Engine for Clinical Encounter & Medical Billing Auditing
-# RULES: Florida Scope of Practice, FCSO Medicare MAC, NCCI Edits, WEDI SNIP 1-5
-# ============================================
-
-from typing import Dict, List, Any, Tuple
+import hashlib
+from datetime import datetime
+from typing import Dict, List, Any, Tuple, Optional, Set
 import re
 
 class ScrutinyResult:
-    def __init__(self, passed: bool, confidence_score: float, issues: List[Dict[str, Any]], clean_claim_data: Dict[str, Any] = None):
+    def __init__(self, passed: bool, confidence_score: float, issues: List[Dict[str, Any]], clean_claim_data: Dict[str, Any] = None, claim_fingerprint: str = "", timely_filing: Dict[str, Any] = None):
         self.passed = passed
         self.confidence_score = confidence_score
         self.issues = issues
         self.clean_claim_data = clean_claim_data or {}
+        self.claim_fingerprint = claim_fingerprint
+        self.timely_filing = timely_filing or {}
 
     def to_dict(self):
         return {
@@ -20,6 +18,8 @@ class ScrutinyResult:
             "confidence_score": self.confidence_score,
             "issue_count": len(self.issues),
             "issues": self.issues,
+            "claim_fingerprint": self.claim_fingerprint,
+            "timely_filing": self.timely_filing,
             "clean_claim_data": self.clean_claim_data
         }
 
@@ -27,8 +27,12 @@ class ScrutinyResult:
 class MedicalBillingScrutinizer:
     """
     Autonomous Medical Billing & Clinical Note Scrutinizer.
-    Enforces Florida Statutes, FCSO Medicare LCD/NCD, NCCI PTP/MUE, and AMA MDM Guidelines.
+    Enforces Florida Statutes, FCSO Medicare LCD/NCD, NCCI PTP/MUE, AMA MDM Guidelines,
+    Payer Timely Filing Limits, and Duplicate Claim Fingerprinting.
     """
+
+    def __init__(self):
+        self.submitted_claims_fingerprints: Set[str] = set()
 
     FCSO_LCD_RULES = {
         "82306": {
@@ -64,6 +68,19 @@ class MedicalBillingScrutinizer:
         "82306": 1
     }
 
+    VALID_POS_CODES = {
+        "02": "Telehealth Other than Patient's Home",
+        "10": "Telehealth in Patient's Home",
+        "11": "Office",
+        "12": "Home / Domiciliary",
+        "13": "Assisted Living Facility",
+        "21": "Inpatient Hospital",
+        "22": "On Campus Outpatient Hospital",
+        "23": "Emergency Room",
+        "31": "Skilled Nursing Facility",
+        "32": "Nursing Facility"
+    }
+
     def scrutinize_encounter(self, encounter: Dict[str, Any]) -> ScrutinyResult:
         issues = []
         confidence = 1.0
@@ -73,6 +90,7 @@ class MedicalBillingScrutinizer:
         clinical_note = encounter.get("clinical_note", {})
         billing = encounter.get("billing", {})
         payer = encounter.get("payer", {})
+        dos = encounter.get("date_of_service", datetime.now().strftime("%Y-%m-%d"))
 
         # TIER 1: Clinical Note Completeness & E/M MDM Scrutiny
         cpt_codes = billing.get("cpt_codes", [])
@@ -102,12 +120,130 @@ class MedicalBillingScrutinizer:
         issues.extend(snip_issues)
         confidence -= snip_penalty
 
+        # TIER 6: Place of Service (POS) Classification & Validation
+        pos_issues, pos_penalty = self._validate_place_of_service(billing, clinical_note)
+        issues.extend(pos_issues)
+        confidence -= pos_penalty
+
+        # TIER 7: Payer Timely Filing Deadline Monitoring
+        timely_res, timely_issues, timely_penalty = self._validate_timely_filing(dos, payer)
+        issues.extend(timely_issues)
+        confidence -= timely_penalty
+
+        # TIER 8: Duplicate Claim Fingerprint & Hash Guard
+        fingerprint, dup_issues, dup_penalty = self._validate_duplicate_claims(patient, dos, billing, provider)
+        issues.extend(dup_issues)
+        confidence -= dup_penalty
+
         confidence = max(0.0, min(1.0, round(confidence, 2)))
         passed = (len([i for i in issues if i["severity"] == "CRITICAL"]) == 0) and (confidence >= 0.90)
 
+        if passed:
+            self.submitted_claims_fingerprints.add(fingerprint)
+
         clean_claim = encounter if passed else {}
 
-        return ScrutinyResult(passed=passed, confidence_score=confidence, issues=issues, clean_claim_data=clean_claim)
+        return ScrutinyResult(
+            passed=passed,
+            confidence_score=confidence,
+            issues=issues,
+            clean_claim_data=clean_claim,
+            claim_fingerprint=fingerprint,
+            timely_filing=timely_res
+        )
+
+    def _validate_place_of_service(self, billing: Dict[str, Any], note: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
+        issues = []
+        penalty = 0.0
+        pos = str(billing.get("place_of_service", "11")).strip()
+
+        if pos not in self.VALID_POS_CODES:
+            issues.append({
+                "tier": "Tier 6: Place of Service (POS)",
+                "severity": "CRITICAL",
+                "code": "INVALID_POS_CODE",
+                "message": f"Place of Service code '{pos}' is not a valid standard HIPAA POS code."
+            })
+            penalty += 0.25
+
+        return issues, penalty
+
+    def _validate_timely_filing(self, dos_str: str, payer: Dict[str, Any]) -> Tuple[Dict[str, Any], List[Dict[str, Any]], float]:
+        issues = []
+        penalty = 0.0
+        
+        deadline_days = payer.get("timely_filing_days", 180)
+        payer_type = str(payer.get("type", "")).upper()
+        if "MEDICARE" in payer_type or "MEDICARE" in str(payer.get("name", "")).upper():
+            deadline_days = 365
+        elif "MEDICAID" in payer_type or "MEDICAID" in str(payer.get("name", "")).upper():
+            deadline_days = min(deadline_days, 180)
+
+        days_elapsed = 0
+        try:
+            dos_date = datetime.strptime(dos_str, "%Y-%m-%d").date()
+            today = datetime.now().date()
+            days_elapsed = (today - dos_date).days
+        except Exception:
+            days_elapsed = 0
+
+        days_remaining = deadline_days - days_elapsed
+        status = "ON_TIME"
+
+        if days_elapsed > deadline_days:
+            status = "EXPIRED"
+            issues.append({
+                "tier": "Tier 7: Timely Filing",
+                "severity": "CRITICAL",
+                "code": "TIMELY_FILING_EXPIRED",
+                "message": f"Claim DOS ({dos_str}) is {days_elapsed} days old, exceeding {payer.get('name', 'Payer')} limit of {deadline_days} days. High CARC 29 denial risk."
+            })
+            penalty += 0.50
+        elif 0 <= days_remaining <= 30:
+            status = "WARNING_NEARING_DEADLINE"
+            issues.append({
+                "tier": "Tier 7: Timely Filing",
+                "severity": "WARNING",
+                "code": "TIMELY_FILING_WARNING",
+                "message": f"Claim DOS ({dos_str}) has only {days_remaining} days remaining before payer timely filing deadline ({deadline_days} days)."
+            })
+            penalty += 0.05
+
+        assessment = {
+            "date_of_service": dos_str,
+            "days_elapsed": max(0, days_elapsed),
+            "payer_deadline_days": deadline_days,
+            "days_remaining": days_remaining,
+            "status": status
+        }
+
+        return assessment, issues, penalty
+
+    def _validate_duplicate_claims(self, patient: Dict[str, Any], dos: str, billing: Dict[str, Any], provider: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]], float]:
+        issues = []
+        penalty = 0.0
+
+        member_id = str(patient.get("member_id", "")).strip().upper()
+        rendering_npi = str(provider.get("rendering_npi_type_1") or provider.get("npi") or "").strip()
+        cpt_codes = sorted([
+            (item.get("code") if isinstance(item, dict) else item.code)
+            for item in billing.get("cpt_codes", [])
+        ])
+        cpts_str = ",".join(cpt_codes)
+
+        raw_fingerprint = f"{member_id}|{dos}|{cpts_str}|{rendering_npi}"
+        fingerprint_hash = hashlib.sha256(raw_fingerprint.encode()).hexdigest()
+
+        if fingerprint_hash in self.submitted_claims_fingerprints:
+            issues.append({
+                "tier": "Tier 8: Duplicate Claim Guard",
+                "severity": "CRITICAL",
+                "code": "DUPLICATE_CLAIM_DETECTED",
+                "message": f"Exact duplicate claim already registered in batch/session with fingerprint '{fingerprint_hash[:12]}...'. Immediate CARC 18 denial risk."
+            })
+            penalty += 0.50
+
+        return fingerprint_hash, issues, penalty
 
     def _validate_em_documentation(self, em_code: str, note: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
         issues = []
@@ -252,12 +388,24 @@ class MedicalBillingScrutinizer:
         issues = []
         penalty = 0.0
 
-        if not provider.get("npi") or not re.match(r"^\d{10}$", str(provider.get("npi"))):
+        billing_npi = str(provider.get("billing_npi_type_2") or provider.get("npi") or "")
+        rendering_npi = str(provider.get("rendering_npi_type_1") or provider.get("npi") or "")
+
+        if not billing_npi or not re.match(r"^\d{10}$", billing_npi):
             issues.append({
-                "tier": "Tier 5: WEDI SNIP 1-2",
+                "tier": "Tier 5: WEDI SNIP 1-2 (Dual NPI)",
                 "severity": "CRITICAL",
-                "code": "INVALID_BILLING_NPI",
-                "message": "Billing Provider NPI is missing or not a 10-digit number."
+                "code": "INVALID_BILLING_NPI_TYPE_2",
+                "message": f"Billing Provider NPI (Box 33a) is invalid ('{billing_npi}'). Expected valid 10-digit Type 2 Organization NPI."
+            })
+            penalty += 0.25
+
+        if not rendering_npi or not re.match(r"^\d{10}$", rendering_npi):
+            issues.append({
+                "tier": "Tier 5: WEDI SNIP 1-2 (Dual NPI)",
+                "severity": "CRITICAL",
+                "code": "INVALID_RENDERING_NPI_TYPE_1",
+                "message": f"Rendering Provider NPI (Box 24J) is invalid ('{rendering_npi}'). Expected valid 10-digit Type 1 Clinician NPI."
             })
             penalty += 0.25
 

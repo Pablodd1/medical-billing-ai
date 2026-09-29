@@ -46,10 +46,20 @@ class ClinicalCodingEngine:
         extracted_procedures = self._extract_procedures(full_text)
         em_code, em_charge = self._score_em_level(note, len(extracted_diagnoses))
 
+        # Determine POS
+        if is_telehealth:
+            pos = "02"
+        elif note.place_of_service_detected:
+            pos = note.place_of_service_detected
+        else:
+            pos = "11"
+
+        is_virtual = pos in ["02", "10"] or is_telehealth
+
         service_lines: List[CPTServiceLine] = []
 
         em_modifiers = []
-        if is_telehealth:
+        if is_virtual:
             em_modifiers.append("95")
         if extracted_procedures:
             em_modifiers.append("25")
@@ -74,7 +84,7 @@ class ClinicalCodingEngine:
         total_charge = sum(line.charge * line.units for line in service_lines)
 
         return BillingDetails(
-            place_of_service="02" if is_telehealth else "11",
+            place_of_service=pos,
             total_charge=round(total_charge, 2),
             diagnosis_codes=extracted_diagnoses,
             cpt_codes=service_lines

@@ -44,10 +44,13 @@ class X12_837P_Generator:
         # 1000B Receiver
         segments.append(f"NM1*40*2*OFFICE ALLY*****46*{self.receiver_id.strip()}~")
 
+        billing_npi = prov.get('billing_npi_type_2') or prov.get('npi')
+        rendering_npi = prov.get('rendering_npi_type_1') or prov.get('npi')
+
         # 2000A Billing Provider
         segments.append("HL*1**20*1~")
         segments.append(f"PRV*BI*PXC*{prov.get('taxonomy_code', '207Q00000X')}~")
-        segments.append(f"NM1*85*2*{prov['organization_name']}*****XX*{prov['npi']}~")
+        segments.append(f"NM1*85*2*{prov['organization_name']}*****XX*{billing_npi}~")
         segments.append(f"N3*{prov.get('address', '1200 Brickell Ave')}~")
         segments.append(f"N4*{prov.get('city', 'Miami')}*{prov.get('state', 'FL')}*{prov.get('zip', '33131')}~")
         segments.append(f"REF*EI*{prov.get('tax_id', '123456789')}~")
@@ -81,8 +84,29 @@ class X12_837P_Generator:
             segments.append(f"HI*{'*'.join(dx_parts)}~")
 
         # 2310B Rendering Provider
-        segments.append(f"NM1*82*1*{prov.get('rendering_last_name', 'Provider')}*{prov.get('rendering_first_name', 'Clinician')}****XX*{prov['npi']}~")
+        segments.append(f"NM1*82*1*{prov.get('rendering_last_name', 'Provider')}*{prov.get('rendering_first_name', 'Clinician')}****XX*{rendering_npi}~")
         segments.append(f"PRV*PE*PXC*{prov.get('taxonomy_code', '207Q00000X')}~")
+
+        # 2320 / 2330 Other Subscriber & Other Payer (Secondary COB)
+        sec_payer = pat.get("secondary_payer")
+        if sec_payer:
+            sec_payer_dict = sec_payer if isinstance(sec_payer, dict) else sec_payer.model_dump()
+            sec_payer_name = sec_payer_dict.get("name", "SECONDARY INSURANCE")
+            sec_payer_id = sec_payer_dict.get("payer_id", "SEC01")
+            sec_member_id = pat.get("secondary_member_id") or pat.get("member_id")
+            
+            # Loop 2320: Other Subscriber Info
+            segments.append("SBR*S*18*******CI~")
+            
+            # Loop 2330A: Other Subscriber Name
+            segments.append(f"NM1*IL*1*{pat['last_name']}*{pat['first_name']}****MI*{sec_member_id}~")
+            segments.append(f"N3*{pat.get('address', '450 Biscayne Blvd')}~")
+            segments.append(f"N4*{pat.get('city', 'Miami')}*{pat.get('state', 'FL')}*{pat.get('zip', '33132')}~")
+
+            # Loop 2330B: Other Payer Name
+            segments.append(f"NM1*PR*2*{sec_payer_name}*****PI*{sec_payer_id}~")
+            segments.append(f"N3*{sec_payer_dict.get('address', 'PO BOX 2000')}~")
+            segments.append(f"N4*{sec_payer_dict.get('city', 'Jacksonville')}*{sec_payer_dict.get('state', 'FL')}*{sec_payer_dict.get('zip', '32202')}~")
 
         # 2400 Service Lines
         dos_cleaned = str(encounter.get("date_of_service", full_date)).replace("-", "")

@@ -66,9 +66,18 @@ class AutonomousMedicalBillingPipeline:
     ) -> Dict[str, Any]:
         pipeline_log = []
 
-        # STAGE 1: Multimodal Ingestion
+        # STAGE 1: Multimodal Ingestion & Multi-Date / POS Disambiguation
         parsed_note = self.ingestor.ingest_document(raw_doc_or_content, doc_type)
-        pipeline_log.append(f"[Stage 1] Ingested document type '{doc_type.value}' ({len(parsed_note.raw_text)} chars)")
+        
+        # Disambiguate Date of Service (DOS)
+        effective_dos = date_of_service
+        if parsed_note.date_of_service_detected:
+            effective_dos = parsed_note.date_of_service_detected
+            pipeline_log.append(f"[Stage 1] Multi-Date Disambiguation: DOS detected as '{effective_dos}' (Reg Date='{parsed_note.registration_date_detected}', Sig Date='{parsed_note.signature_date_detected}')")
+        else:
+            pipeline_log.append(f"[Stage 1] Ingested document type '{doc_type.value}' ({len(parsed_note.raw_text)} chars). Using explicit DOS: '{effective_dos}'")
+
+        pipeline_log.append(f"[Stage 1] POS Disambiguation: Detected POS '{parsed_note.place_of_service_detected}'")
 
         # STAGE 2: 270/271 Eligibility
         patient = PatientInfo(**patient_data)
@@ -89,11 +98,11 @@ class AutonomousMedicalBillingPipeline:
 
         # STAGE 3: Clinical NLP Coding & MDM
         billing = self.coding_engine.generate_coding(parsed_note, is_telehealth=is_telehealth)
-        pipeline_log.append(f"[Stage 3] Coded {len(billing.diagnosis_codes)} ICD-10 dx and {len(billing.cpt_codes)} CPT lines. Total: ${billing.total_charge}")
+        pipeline_log.append(f"[Stage 3] Coded {len(billing.diagnosis_codes)} ICD-10 dx and {len(billing.cpt_codes)} CPT lines (POS={billing.place_of_service}). Total: ${billing.total_charge}")
 
         encounter_payload = EncounterPayload(
             encounter_id=encounter_id,
-            date_of_service=date_of_service,
+            date_of_service=effective_dos,
             patient=patient,
             provider=provider,
             payer=payer,
@@ -107,9 +116,15 @@ class AutonomousMedicalBillingPipeline:
         if hcfa_res["physician_queries"]:
             pipeline_log.append(f"[Stage 4] CDI Alert: {len(hcfa_res['physician_queries'])} real-time physician micro-queries generated")
 
-        # STAGE 5: 5-Tier Scrutiny
+        # STAGE 5: 8-Tier Scrutiny (FCSO, NCCI, Timely Filing, Duplicate Guard, Dual NPI)
         scrutiny_res = self.scrutinizer.scrutinize_encounter(encounter_dict)
-        pipeline_log.append(f"[Stage 5] Scrutiny Result: Passed={scrutiny_res.passed}, Confidence={scrutiny_res.confidence_score * 100:.1f}%")
+        encounter_payload.claim_fingerprint_hash = scrutiny_res.claim_fingerprint
+        if scrutiny_res.timely_filing:
+            from models.encounter import TimelyFilingAssessment
+            encounter_payload.timely_filing = TimelyFilingAssessment(**scrutiny_res.timely_filing)
+        encounter_dict = encounter_payload.model_dump()
+
+        pipeline_log.append(f"[Stage 5] Scrutiny Result: Passed={scrutiny_res.passed}, Confidence={scrutiny_res.confidence_score * 100:.1f}%, Fingerprint={scrutiny_res.claim_fingerprint[:10]}...")
 
         if not scrutiny_res.passed or not hcfa_res["is_clean_claim"]:
             return {
@@ -118,10 +133,12 @@ class AutonomousMedicalBillingPipeline:
                 "scrutiny_issues": scrutiny_res.issues,
                 "hcfa_missing_fields": hcfa_res["missing_fields"],
                 "physician_queries": hcfa_res["physician_queries"],
+                "claim_fingerprint": scrutiny_res.claim_fingerprint,
+                "timely_filing": scrutiny_res.timely_filing,
                 "pipeline_log": pipeline_log
             }
 
-        # STAGE 6: 837P Generation & Dispatch
+        # STAGE 6: 837P Generation & Dispatch (with Secondary COB if present)
         x12_837_content = self.x12_generator.generate_837p(encounter_dict)
         dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=f"BAT_{encounter_id}")
         pipeline_log.append(f"[Stage 6] 837P Transmitted to Office Ally SFTP. 999 Ack={dispatch_res['ack_999_functional']['status']}, 277CA={dispatch_res['ack_277ca_claim_level']['status']}")
@@ -130,8 +147,13 @@ class AutonomousMedicalBillingPipeline:
             "status": "TRANSMITTED_CLEAN_CLAIM",
             "confidence_score": scrutiny_res.confidence_score,
             "encounter_id": encounter_id,
+            "date_of_service": effective_dos,
+            "place_of_service": billing.place_of_service,
             "total_billed": billing.total_charge,
-            "x12_837_snippet": x12_837_content.split("\n")[:10],
+            "claim_fingerprint": scrutiny_res.claim_fingerprint,
+            "timely_filing": scrutiny_res.timely_filing,
+            "has_secondary_cob": bool(patient.secondary_payer),
+            "x12_837_snippet": x12_837_content.split("\n")[:12],
             "clearinghouse_dispatch": dispatch_res,
             "pipeline_log": pipeline_log
         }

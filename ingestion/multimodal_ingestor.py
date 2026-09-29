@@ -6,7 +6,7 @@
 import os
 import re
 import sys
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Optional, List, Tuple
 from pypdf import PdfReader
 from docx import Document
 
@@ -89,6 +89,123 @@ class MultimodalDocumentIngestor:
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
         return cleaned
 
+    DATE_PATTERNS = [
+        # YYYY-MM-DD
+        (r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", "%Y-%m-%d"),
+        # MM/DD/YYYY or MM-DD-YYYY
+        (r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b", "%m/%d/%Y"),
+        # Month DD, YYYY (e.g. August 14, 2026 or Aug 14, 2026)
+        (r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4})\b", "named_month")
+    ]
+
+    MONTH_MAP = {
+        "jan": "01", "january": "01",
+        "feb": "02", "february": "02",
+        "mar": "03", "march": "03",
+        "apr": "04", "april": "04",
+        "may": "05",
+        "jun": "06", "june": "06",
+        "jul": "07", "july": "07",
+        "aug": "08", "august": "08",
+        "sep": "09", "september": "09",
+        "oct": "10", "october": "10",
+        "nov": "11", "november": "11",
+        "dec": "12", "december": "12"
+    }
+
+    def _normalize_date_str(self, date_str: str) -> Optional[str]:
+        if not date_str:
+            return None
+        date_str = date_str.strip().rstrip(".,;")
+        
+        # Format 1: YYYY-MM-DD
+        m1 = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", date_str)
+        if m1:
+            y, m, d = m1.groups()
+            return f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+
+        # Format 2: MM/DD/YYYY or MM-DD-YYYY
+        m2 = re.match(r"^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$", date_str)
+        if m2:
+            m, d, y = m2.groups()
+            return f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+
+        # Format 3: Month DD, YYYY
+        m3 = re.match(r"^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$", date_str)
+        if m3:
+            month_word, d, y = m3.groups()
+            month_num = self.MONTH_MAP.get(month_word.lower())
+            if month_num:
+                return f"{int(y):04d}-{month_num}-{int(d):02d}"
+
+        return None
+
+    def _extract_multi_dates(self, text: str) -> Dict[str, Optional[str]]:
+        """
+        Disambiguates Date of Service (DOS), Face Sheet Registration Date,
+        Provider Signature Date, and Patient DOB to prevent billing date errors.
+        """
+        results = {
+            "dos": None,
+            "registration": None,
+            "signature": None,
+            "dob": None
+        }
+
+        # 1. DOB extraction (to explicitly exclude from DOS)
+        dob_match = re.search(r"(?:DOB|Date of Birth|Birth Date)[:\s]+([A-Za-z0-9/\-]+(?:,\s*\d{4})?)", text, re.IGNORECASE)
+        if dob_match:
+            results["dob"] = self._normalize_date_str(dob_match.group(1))
+
+        # 2. Date of Service (DOS)
+        dos_match = re.search(r"(?:Date of Service|DOS|Service Date|Encounter Date|Visit Date|Date of Visit)[:\s]+([A-Za-z0-9/\-]+(?:,\s*\d{4})?)", text, re.IGNORECASE)
+        if dos_match:
+            results["dos"] = self._normalize_date_str(dos_match.group(1))
+
+        # 3. Registration / Face Sheet Date
+        reg_match = re.search(r"(?:Registration Date|Admit Date|Admission Date|Intake Date|Face Sheet Date)[:\s]+([A-Za-z0-9/\-]+(?:,\s*\d{4})?)", text, re.IGNORECASE)
+        if reg_match:
+            results["registration"] = self._normalize_date_str(reg_match.group(1))
+
+        # 4. Provider Signature Date
+        sig_match = re.search(r"(?:Electronically Signed by [^\n]+ on|Date Signed|Signature Date|Signed Date|Signed:)[:\s]+([A-Za-z0-9/\-]+(?:,\s*\d{4})?)", text, re.IGNORECASE)
+        if sig_match:
+            results["signature"] = self._normalize_date_str(sig_match.group(1))
+
+        # Fallback for DOS: If no explicit DOS prefix found, search for generic date not equal to DOB or Registration
+        if not results["dos"]:
+            generic_dates = []
+            for pat, _ in self.DATE_PATTERNS:
+                for match in re.finditer(pat, text, re.IGNORECASE):
+                    norm = self._normalize_date_str(match.group(0))
+                    if norm and norm != results["dob"] and norm != results["registration"]:
+                        generic_dates.append(norm)
+            if generic_dates:
+                results["dos"] = generic_dates[0]
+
+        return results
+
+    def _extract_place_of_service(self, text: str) -> str:
+        """
+        Classifies Place of Service (POS) from clinical narrative and facility clues:
+        - 11: Office (Default)
+        - 12: Home / Domiciliary
+        - 13: Assisted Living Facility (ALF) / Senior Living
+        - 02: Telehealth Provided Other than in Patient's Home
+        - 10: Telehealth Provided in Patient's Home
+        """
+        text_lower = text.lower()
+        if any(term in text_lower for term in ["assisted living", "alf", "senior living facility", "group home", "memory care facility"]):
+            return "13"
+        elif any(term in text_lower for term in ["home visit", "patient residence", "patient home", "domiciliary visit", "house call"]):
+            return "12"
+        elif any(term in text_lower for term in ["telehealth in home", "virtual visit at home", "telemedicine at home"]):
+            return "10"
+        elif any(term in text_lower for term in ["telehealth", "telemedicine", "virtual visit", "video visit", "audio/video encounter", "doxy.me", "zoom medical"]):
+            return "02"
+        else:
+            return "11"
+
     def _extract_soap_structure(self, text: str, source_type: DocumentSourceType) -> ClinicalNoteParsed:
         cc = ""
         hpi = ""
@@ -120,6 +237,10 @@ class MultimodalDocumentIngestor:
         if time_match:
             time_spent = int(time_match.group(1))
 
+        # Extract Disambiguated Dates & Place of Service
+        dates = self._extract_multi_dates(text)
+        pos = self._extract_place_of_service(text)
+
         return ClinicalNoteParsed(
             raw_text=text,
             source_type=source_type,
@@ -129,5 +250,9 @@ class MultimodalDocumentIngestor:
             physical_exam=pe,
             assessment_and_plan=ap,
             time_spent_minutes=time_spent,
-            patient_status="established" if "follow-up" in text.lower() or "f/u" in text.lower() else "new"
+            patient_status="established" if "follow-up" in text.lower() or "f/u" in text.lower() else "new",
+            date_of_service_detected=dates["dos"],
+            registration_date_detected=dates["registration"],
+            signature_date_detected=dates["signature"],
+            place_of_service_detected=pos
         )
