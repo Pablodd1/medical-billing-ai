@@ -23,6 +23,7 @@ try:
     from transmission.office_ally_dispatcher import OfficeAllyDispatcher
     from remittance.era_835_parser import ERA_835_Parser
     from remittance.denial_appeals_engine import DenialAppealsEngine
+    from config import OfficeAllyConfig
 except ImportError:
     from .models.encounter import EncounterPayload, DocumentSourceType, PatientInfo, ProviderInfo, PayerInfo, ClinicalNoteParsed, BillingDetails
     from .ingestion.multimodal_ingestor import MultimodalDocumentIngestor
@@ -34,6 +35,7 @@ except ImportError:
     from .transmission.office_ally_dispatcher import OfficeAllyDispatcher
     from .remittance.era_835_parser import ERA_835_Parser
     from .remittance.denial_appeals_engine import DenialAppealsEngine
+    from .config import OfficeAllyConfig
 
 class AutonomousMedicalBillingPipeline:
     """
@@ -42,14 +44,22 @@ class AutonomousMedicalBillingPipeline:
     5-Tier Scrutiny -> CDI Queries / HITL -> 837P Transmission -> OA SFTP -> 835 Remittance Loop.
     """
 
-    def __init__(self, submitter_id: str = "MAGNOLIA_HEALTH"):
+    def __init__(self, submitter_id: str = "MAGNOLIA_HEALTH", config: OfficeAllyConfig = None):
+        self.config = config or OfficeAllyConfig()
+        if submitter_id:
+            self.config.claims_submitter_id = submitter_id
         self.ingestor = MultimodalDocumentIngestor()
         self.eligibility_engine = RealTimeEligibilityEngine()
         self.coding_engine = ClinicalCodingEngine()
         self.hcfa_auditor = HCFA1500ExtractorAndAuditor()
         self.scrutinizer = MedicalBillingScrutinizer()
-        self.x12_generator = X12_837P_Generator(submitter_id=submitter_id)
-        self.dispatcher = OfficeAllyDispatcher(submitter_id=submitter_id)
+        self.x12_generator = X12_837P_Generator(config=self.config)
+        # Real SFTP when credentials exist; otherwise a clearly-labelled
+        # simulation so dev/test environments keep working.
+        self.dispatcher = OfficeAllyDispatcher(
+            config=self.config,
+            allow_simulation=not self.config.has_sftp_credentials,
+        )
         self.era_parser = ERA_835_Parser()
         self.appeals_engine = DenialAppealsEngine()
 
@@ -139,9 +149,13 @@ class AutonomousMedicalBillingPipeline:
             }
 
         # STAGE 6: 837P Generation & Dispatch (with Secondary COB if present)
+        encounter_dict["patient_control_number"] = encounter_id
         x12_837_content = self.x12_generator.generate_837p(encounter_dict)
         dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=f"BAT_{encounter_id}")
-        pipeline_log.append(f"[Stage 6] 837P Transmitted to Office Ally SFTP. 999 Ack={dispatch_res['ack_999_functional']['status']}, 277CA={dispatch_res['ack_277ca_claim_level']['status']}")
+        if dispatch_res.get("simulation"):
+            pipeline_log.append("[Stage 6] SIMULATION MODE: 837P generated but NOT transmitted (no OA SFTP credentials configured).")
+        else:
+            pipeline_log.append("[Stage 6] 837P uploaded to Office Ally /inbound via SFTP; awaiting real 999/277CA from /outbound.")
 
         return {
             "status": "TRANSMITTED_CLEAN_CLAIM",
