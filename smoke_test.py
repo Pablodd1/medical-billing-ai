@@ -1,14 +1,16 @@
 # ============================================
 # FILE: medical_billing_ai/smoke_test.py
 # PURPOSE: End-to-End Smoke Test for Medical Billing AI
-# TESTS: 5-Tier Scrutiny, Florida Scope, FCSO LCD, NCCI PTP, 837P Generation, 835 ERA Learning
+# TESTS: 8-Tier Scrutiny, Florida Scope, FCSO LCD, NCCI PTP, 837P Generation, 835 ERA Learning
+# NOTE: imports updated to the package modules (the stale root-level
+# duplicates were removed in this branch).
 # ============================================
 
 import sys
 import json
-from scrutinizer import MedicalBillingScrutinizer
-from x12_generator import X12_837P_Generator
-from era_parser import ERA_835_Parser
+from scrutiny.scrutinizer import MedicalBillingScrutinizer
+from transmission.x12_837_generator import X12_837P_Generator
+from remittance.era_835_parser import ERA_835_Parser
 
 def run_smoke_test():
     if hasattr(sys.stdout, 'reconfigure'):
@@ -18,7 +20,7 @@ def run_smoke_test():
     print("======================================================================\n")
 
     scrutinizer = MedicalBillingScrutinizer()
-    generator = X12_837P_Generator(submitter_id="MAGNOLIA_HEALTH", receiver_id="OFFICEALLY")
+    generator = X12_837P_Generator(submitter_id="MAGNOLIA_HEALTH", receiver_id="330897513")
     era_parser = ERA_835_Parser()
 
     total_tests = 5
