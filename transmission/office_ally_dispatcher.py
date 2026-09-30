@@ -162,8 +162,22 @@ class OfficeAllyDispatcher:
 
     def poll_acknowledgments(self) -> Dict[str, Any]:
         """Downloads new 999/277CA/835 files from /outbound and reconciles
-        them against the claim ledger."""
+        them against the claim ledger.  When SFTP credentials are absent and
+        OA_ALLOW_SIMULATION=true, returns a clearly-labelled simulation response
+        so test suites and demos can exercise the full endpoint without real creds."""
         if not self.config.has_sftp_credentials:
+            if self.allow_simulation:
+                return {
+                    "simulated": True,
+                    "simulation_label": "NO_SFTP_CREDENTIALS — simulation mode (OA_ALLOW_SIMULATION=true)",
+                    "ta1_files": 0,
+                    "999_files": 0,
+                    "277ca_files": 0,
+                    "835_files": 0,
+                    "unknown_files": [],
+                    "claims_reconciled": 0,
+                    "detail": "Set OA_SFTP_USERNAME and OA_SFTP_PASSWORD to enable real SFTP polling.",
+                }
             raise RuntimeError("SFTP credentials required to poll acknowledgments.")
         files = self.client.poll_outbound()
         return self.ingest_outbound_files(files)

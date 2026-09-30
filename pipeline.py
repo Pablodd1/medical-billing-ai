@@ -63,6 +63,50 @@ class AutonomousMedicalBillingPipeline:
         self.era_parser = ERA_835_Parser()
         self.appeals_engine = DenialAppealsEngine()
 
+    # ── Normalization Helpers ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _normalize_provider(raw: Dict[str, Any]) -> Dict[str, Any]:
+        """Translates a user-friendly flat provider dict into ProviderInfo-compatible fields.
+        Handles common API aliases so callers don't need to know internal field names."""
+        d = dict(raw)
+        # Map 'name' → split into org/rendering names if needed
+        if "name" in d and "organization_name" not in d:
+            d["organization_name"] = d.pop("name")
+        if "rendering_first_name" not in d:
+            org = d.get("organization_name", "")
+            parts = org.replace("DR.", "").replace("Dr.", "").strip().split()
+            d.setdefault("rendering_first_name", parts[0] if parts else "PROVIDER")
+            d.setdefault("rendering_last_name", " ".join(parts[1:]) if len(parts) > 1 else org)
+        # NPI aliases
+        if "npi" in d and not d.get("rendering_npi_type_1"):
+            d["rendering_npi_type_1"] = d["npi"]
+        # Provider type default
+        d.setdefault("type", "APRN")
+        d.setdefault("specialty", "Physical Medicine & Rehabilitation")
+        # Remove unknown fields that ProviderInfo doesn't accept
+        known = {
+            "organization_name", "rendering_first_name", "rendering_last_name",
+            "type", "state", "specialty", "fl_autonomous_registered",
+            "has_collaborative_protocol", "rendering_npi_type_1", "billing_npi_type_2",
+            "npi", "tax_id", "taxonomy_code", "phone", "address", "city", "zip"
+        }
+        return {k: v for k, v in d.items() if k in known}
+
+    @staticmethod
+    def _normalize_payer(raw: Dict[str, Any]) -> Dict[str, Any]:
+        """Translates a user-friendly payer dict into PayerInfo-compatible fields."""
+        d = dict(raw)
+        # Alias payer_name → name
+        if "payer_name" in d and "name" not in d:
+            d["name"] = d.pop("payer_name")
+        # Strip fields not in PayerInfo (member_id, plan_type, group_number belong on PatientInfo)
+        known = {
+            "name", "payer_id", "type", "address", "city", "state", "zip",
+            "requires_prior_auth", "requires_referral", "timely_filing_days"
+        }
+        return {k: v for k, v in d.items() if k in known}
+
     def process_encounter(
         self,
         raw_doc_or_content: Union[str, bytes],
@@ -91,8 +135,8 @@ class AutonomousMedicalBillingPipeline:
 
         # STAGE 2: 270/271 Eligibility
         patient = PatientInfo(**patient_data)
-        provider = ProviderInfo(**provider_data)
-        payer = PayerInfo(**payer_data)
+        provider = ProviderInfo(**self._normalize_provider(provider_data))
+        payer = PayerInfo(**self._normalize_payer(payer_data))
 
         eligibility_res = self.eligibility_engine.check_eligibility(patient, payer)
         pipeline_log.append(f"[Stage 2] 270/271 Eligibility Checked: Active={eligibility_res['is_active_coverage']}, Copay=${eligibility_res['copay_amount']}")
