@@ -9,3 +9,4 @@ lxml>=5.0.0
 python-multipart>=0.0.6
 paramiko>=3.4.0
 tenacity>=8.2.0
+cryptography>=42.0.0

@@ -152,6 +152,14 @@ class AutonomousMedicalBillingPipeline:
         encounter_dict["patient_control_number"] = encounter_id
         x12_837_content = self.x12_generator.generate_837p(encounter_dict)
         dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=f"BAT_{encounter_id}")
+        # Record the claim in the ledger so real 999/277CA/835 files can be
+        # reconciled against it by patient control number (CLM01).
+        self.dispatcher.ledger.record_claims_in_batch(f"BAT_{encounter_id}", [{
+            "patient_control_number": encounter_dict["patient_control_number"],
+            "encounter_id": encounter_id,
+            "patient_name": f"{patient.last_name}, {patient.first_name}" if hasattr(patient, "last_name") else "",
+            "total_charge": billing.total_charge,
+        }])
         if dispatch_res.get("simulation"):
             pipeline_log.append("[Stage 6] SIMULATION MODE: 837P generated but NOT transmitted (no OA SFTP credentials configured).")
         else:
