@@ -181,8 +181,22 @@ class AutonomousMedicalBillingPipeline:
         pipeline_log.append(f"[Stage 5] Scrutiny Result: Passed={scrutiny_res.passed}, Confidence={scrutiny_res.confidence_score * 100:.1f}%, Fingerprint={scrutiny_res.claim_fingerprint[:10]}...")
 
         if not scrutiny_res.passed or not hcfa_res["is_clean_claim"]:
+            p_name = f"{patient.last_name}, {patient.first_name}" if hasattr(patient, "last_name") else "Patient"
+            self.dispatcher.ledger.record_flagged_claim(
+                pcn=encounter_id,
+                encounter_id=encounter_id,
+                patient_name=p_name,
+                total_charge=billing.total_charge,
+                confidence_score=scrutiny_res.confidence_score,
+                scrutiny_issues=scrutiny_res.issues,
+                hcfa_missing=hcfa_res["missing_fields"],
+                physician_queries=hcfa_res["physician_queries"],
+                encounter_payload=encounter_dict,
+            )
+            pipeline_log.append(f"[Stage 5] Stored in HITL Review Queue: PCN='{encounter_id}' (status=FLAGGED_PENDING_REVIEW)")
             return {
                 "status": "FLAGGED_FOR_HUMAN_REVIEW",
+                "patient_control_number": encounter_id,
                 "confidence_score": scrutiny_res.confidence_score,
                 "scrutiny_issues": scrutiny_res.issues,
                 "hcfa_missing_fields": hcfa_res["missing_fields"],
@@ -213,6 +227,7 @@ class AutonomousMedicalBillingPipeline:
             "status": "TRANSMITTED_CLEAN_CLAIM",
             "confidence_score": scrutiny_res.confidence_score,
             "encounter_id": encounter_id,
+            "patient_control_number": encounter_id,
             "date_of_service": effective_dos,
             "place_of_service": billing.place_of_service,
             "total_billed": billing.total_charge,
@@ -222,4 +237,56 @@ class AutonomousMedicalBillingPipeline:
             "x12_837_snippet": x12_837_content.split("\n")[:12],
             "clearinghouse_dispatch": dispatch_res,
             "pipeline_log": pipeline_log
+        }
+
+    def approve_and_transmit_claim(
+        self,
+        patient_control_number: str,
+        resolution_notes: str = "Biller review approved; supervisory protocol/attestation verified",
+        resolved_by: str = "BILLER"
+    ) -> Dict[str, Any]:
+        """Human-in-the-Loop approval: retrieves a flagged claim from the review queue,
+        attaches the biller resolution notes, generates the 837P EDI file, dispatches
+        to Office Ally, updates the ledger to SUBMITTED, and marks the review item RESOLVED."""
+        item = self.dispatcher.ledger.get_review_item(patient_control_number)
+        if not item:
+            raise ValueError(f"Claim '{patient_control_number}' not found in review queue.")
+        if item.get("status") == "RESOLVED":
+            raise ValueError(f"Claim '{patient_control_number}' has already been approved and resolved.")
+
+        encounter_dict = item.get("encounter_payload") or {}
+        encounter_dict["patient_control_number"] = patient_control_number
+
+        # Attach resolution audit
+        if "provider_attestation" in encounter_dict and encounter_dict["provider_attestation"]:
+            encounter_dict["provider_attestation"]["notes"] = resolution_notes
+
+        # Generate 837P EDI
+        x12_837_content = self.x12_generator.generate_837p(encounter_dict)
+        batch_id = f"BAT_HITL_{patient_control_number}"
+        dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=batch_id)
+
+        # Update ledger: record claims in batch (moves status to SUBMITTED)
+        self.dispatcher.ledger.record_claims_in_batch(batch_id, [{
+            "patient_control_number": patient_control_number,
+            "encounter_id": item.get("encounter_id", patient_control_number),
+            "patient_name": item.get("patient_name", ""),
+            "total_charge": item.get("total_charge", 0.0),
+        }])
+
+        # Mark review item resolved
+        self.dispatcher.ledger.resolve_review_item(
+            pcn=patient_control_number,
+            resolution_notes=resolution_notes,
+            resolved_by=resolved_by
+        )
+
+        return {
+            "status": "APPROVED_AND_TRANSMITTED",
+            "patient_control_number": patient_control_number,
+            "batch_id": batch_id,
+            "resolved_by": resolved_by,
+            "resolution_notes": resolution_notes,
+            "clearinghouse_dispatch": dispatch_res,
+            "x12_837_snippet": x12_837_content.split("\n")[:12],
         }

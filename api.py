@@ -14,6 +14,7 @@ import sys
 import os
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Body, Depends
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -59,6 +60,10 @@ class RemittanceRequest(BaseModel):
     raw_835_edi: str
     clinical_note_summary: Optional[Dict[str, Any]] = None
 
+class ApprovalRequest(BaseModel):
+    resolution_notes: str = "Biller review approved; supervisory protocol/attestation verified"
+    resolved_by: str = "BILLER"
+
 @app.get("/")
 def root():
     return {
@@ -72,6 +77,17 @@ def root():
 @app.get("/health")
 def health_check():
     return {"status": "HEALTHY"}
+
+@app.get("/portal", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
+def biller_portal():
+    """Interactive visual portal for medical billers to review encounters,
+    manage the HITL queue, and view the claims ledger."""
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "portal.html")
+    if not os.path.exists(template_path):
+        raise HTTPException(status_code=404, detail="Portal template not found.")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.post("/api/v1/encounter/process")
 def process_encounter_endpoint(req: EncounterRequest, actor: str = Depends(require_api_key)):
@@ -146,7 +162,35 @@ def ingest_remittance_endpoint(req: RemittanceRequest, actor: str = Depends(requ
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ---------------- Phase 2/4 operational endpoints ----------------
+# ---------------- Operational & HITL Review Endpoints ----------------
+
+@app.get("/api/v1/claims/aging/worklist")
+def aging_worklist(actor: str = Depends(require_api_key)):
+    """Daily follow-up worklist: claims stuck in non-final states."""
+    audit_event(actor, "AGING_READ", "/api/v1/claims/aging/worklist", "OK")
+    return pipeline.dispatcher.ledger.aging_report()
+
+@app.get("/api/v1/claims/review-queue")
+def get_review_queue_endpoint(status: str = "PENDING_REVIEW", actor: str = Depends(require_api_key)):
+    """
+    HITL Review Queue: Lists all claims flagged by 8-Tier Scrutiny or HCFA Auditor
+    awaiting medical biller inspection and resolution.
+    """
+    items = pipeline.dispatcher.ledger.get_review_queue(status)
+    audit_event(actor, "REVIEW_QUEUE_READ", "/api/v1/claims/review-queue", "OK", detail={"count": len(items)})
+    return {"status": "OK", "count": len(items), "queue": items}
+
+@app.get("/api/v1/claims/review-queue/{patient_control_number}")
+def get_review_item_endpoint(patient_control_number: str, actor: str = Depends(require_api_key)):
+    """
+    HITL Review Detail: Returns full encounter payload, scrutiny issues, and CDI queries for a flagged claim.
+    """
+    item = pipeline.dispatcher.ledger.get_review_item(patient_control_number)
+    audit_event(actor, "REVIEW_ITEM_READ", "/api/v1/claims/review-queue/{pcn}",
+                "FOUND" if item else "NOT_FOUND", patient_ref=patient_control_number)
+    if not item:
+        raise HTTPException(status_code=404, detail="Claim not found in review queue.")
+    return item
 
 @app.get("/api/v1/claims/{patient_control_number}")
 def get_claim_status(patient_control_number: str, actor: str = Depends(require_api_key)):
@@ -158,11 +202,35 @@ def get_claim_status(patient_control_number: str, actor: str = Depends(require_a
         raise HTTPException(status_code=404, detail="Claim not found in ledger.")
     return claim
 
-@app.get("/api/v1/claims/aging/worklist")
-def aging_worklist(actor: str = Depends(require_api_key)):
-    """Daily follow-up worklist: claims stuck in non-final states."""
-    audit_event(actor, "AGING_READ", "/api/v1/claims/aging/worklist", "OK")
-    return pipeline.dispatcher.ledger.aging_report()
+@app.post("/api/v1/claims/{patient_control_number}/approve-and-transmit")
+def approve_and_transmit_endpoint(
+    patient_control_number: str,
+    req: ApprovalRequest = Body(default_factory=ApprovalRequest),
+    actor: str = Depends(require_api_key)
+):
+    """
+    HITL 1-Click Approval: Medical biller reviews flagged claim, provides resolution notes,
+    and dispatches the approved 837P EDI to Office Ally.
+    """
+    audit_event(actor, "CLAIM_APPROVE_TRANSMIT", "/api/v1/claims/{pcn}/approve-and-transmit",
+                "ATTEMPT", patient_ref=patient_control_number)
+    try:
+        res = pipeline.approve_and_transmit_claim(
+            patient_control_number=patient_control_number,
+            resolution_notes=req.resolution_notes,
+            resolved_by=f"{actor}:{req.resolved_by}"
+        )
+        audit_event(actor, "CLAIM_APPROVE_TRANSMIT", "/api/v1/claims/{pcn}/approve-and-transmit",
+                    "SUCCESS", patient_ref=patient_control_number)
+        return res
+    except ValueError as e:
+        audit_event(actor, "CLAIM_APPROVE_TRANSMIT", "/api/v1/claims/{pcn}/approve-and-transmit",
+                    "REJECTED", patient_ref=patient_control_number)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        audit_event(actor, "CLAIM_APPROVE_TRANSMIT", "/api/v1/claims/{pcn}/approve-and-transmit",
+                    "ERROR", patient_ref=patient_control_number)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/transmission/poll-acknowledgments")
 def poll_acks(actor: str = Depends(require_api_key)):

@@ -64,12 +64,54 @@ class MultimodalDocumentIngestor:
 
         return self._extract_soap_structure(raw_text, source_type)
 
-    def _parse_pdf(self, file_path: str) -> str:
-        if not os.path.exists(file_path):
-            return str(file_path)
-        reader = PdfReader(file_path)
-        text_pages = [page.extract_text() or "" for page in reader.pages]
-        return "\n".join(text_pages).strip()
+    def _parse_pdf(self, file_path_or_content: Union[str, bytes]) -> str:
+        """Parses PDF content from a file path, raw bytes, or base64-encoded string.
+        Uses PyMuPDF (fitz) as primary high-fidelity extractor with pypdf fallback."""
+        import io
+        import base64
+        pdf_bytes = None
+
+        if isinstance(file_path_or_content, bytes):
+            pdf_bytes = file_path_or_content
+        elif isinstance(file_path_or_content, str):
+            if os.path.exists(file_path_or_content):
+                try:
+                    with open(file_path_or_content, "rb") as f:
+                        pdf_bytes = f.read()
+                except Exception:
+                    pass
+            elif file_path_or_content.strip().startswith("JVBERi0"):  # Base64 magic for %PDF-
+                try:
+                    pdf_bytes = base64.b64decode(file_path_or_content.strip())
+                except Exception:
+                    pass
+
+        if not pdf_bytes:
+            return str(file_path_or_content)
+
+        # 1. Primary: PyMuPDF (fitz)
+        try:
+            import fitz
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            pages_text = [page.get_text() for page in doc]
+            full_text = "\n".join(pages_text).strip()
+            if len(full_text) > 20:
+                return full_text
+        except Exception:
+            pass
+
+        # 2. Fallback: pypdf
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(pdf_bytes))
+            pages_text = [page.extract_text() or "" for page in reader.pages]
+            full_text = "\n".join(pages_text).strip()
+            if full_text:
+                return full_text
+        except Exception:
+            pass
+
+        return str(file_path_or_content)
 
     def _parse_docx(self, file_path: str) -> str:
         if not os.path.exists(file_path):

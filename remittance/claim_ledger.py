@@ -53,6 +53,23 @@ CREATE TABLE IF NOT EXISTS events (
     detail TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_pcn ON events(patient_control_number);
+CREATE TABLE IF NOT EXISTS review_queue (
+    patient_control_number TEXT PRIMARY KEY,
+    encounter_id TEXT,
+    patient_name TEXT,
+    total_charge REAL,
+    confidence_score REAL,
+    scrutiny_issues TEXT,
+    hcfa_missing TEXT,
+    physician_queries TEXT,
+    encounter_payload TEXT,
+    created_at TEXT,
+    status TEXT DEFAULT 'PENDING_REVIEW',
+    resolved_at TEXT,
+    resolution_notes TEXT,
+    resolved_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rq_status ON review_queue(status);
 """
 
 _FINAL_STATUSES = {"PAID", "DENIED", "REJECTED_999", "REJECTED_277CA", "REJECTED_TA1"}
@@ -108,13 +125,17 @@ class ClaimLedger:
         conn = self._connect()
         try:
             for c in claims:
+                now = self._now()
                 conn.execute(
-                    "INSERT OR IGNORE INTO claims (patient_control_number, batch_id,"
-                    " encounter_id, patient_name, total_charge, status, updated_at)"
-                    " VALUES (?,?,?,?,?,?,?)",
+                    "INSERT INTO claims (patient_control_number, batch_id, encounter_id,"
+                    " patient_name, total_charge, status, last_event, updated_at)"
+                    " VALUES (?,?,?,?,?,?,?,?)"
+                    " ON CONFLICT(patient_control_number) DO UPDATE SET"
+                    " batch_id=excluded.batch_id, status='SUBMITTED',"
+                    " last_event='BATCH_DISPATCHED', updated_at=excluded.updated_at",
                     (c["patient_control_number"], batch_id, c.get("encounter_id", ""),
                      c.get("patient_name", ""), float(c.get("total_charge", 0) or 0),
-                     "SUBMITTED", self._now()),
+                     "SUBMITTED", "BATCH_DISPATCHED", now),
                 )
             conn.commit()
         finally:
@@ -256,5 +277,109 @@ class ClaimLedger:
                               for r in counts},
                 "needs_follow_up": stuck,
             }
+        finally:
+            conn.close()
+
+    # ---------- human-in-the-loop (hitl) review queue ----------
+    def record_flagged_claim(
+        self,
+        pcn: str,
+        encounter_id: str,
+        patient_name: str,
+        total_charge: float,
+        confidence_score: float,
+        scrutiny_issues: List[Any],
+        hcfa_missing: List[Any],
+        physician_queries: List[Any],
+        encounter_payload: Dict[str, Any],
+    ):
+        """Records a flagged claim in both the claims ledger (as FLAGGED_PENDING_REVIEW)
+        and the review_queue table so the medical biller can inspect and resolve it."""
+        conn = self._connect()
+        try:
+            now = self._now()
+            conn.execute(
+                "INSERT OR REPLACE INTO claims (patient_control_number, batch_id, encounter_id,"
+                " patient_name, total_charge, status, last_event, updated_at)"
+                " VALUES (?,?,?,?,?,?,?,?)",
+                (pcn, "PENDING_REVIEW", encounter_id, patient_name, float(total_charge or 0),
+                 "FLAGGED_PENDING_REVIEW", "SCRUTINY_FLAGGED", now),
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO review_queue (patient_control_number, encounter_id,"
+                " patient_name, total_charge, confidence_score, scrutiny_issues, hcfa_missing,"
+                " physician_queries, encounter_payload, created_at, status)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (pcn, encounter_id, patient_name, float(total_charge or 0), float(confidence_score or 0),
+                 json.dumps(scrutiny_issues), json.dumps(hcfa_missing), json.dumps(physician_queries),
+                 json.dumps(encounter_payload), now, "PENDING_REVIEW"),
+            )
+            conn.execute(
+                "INSERT INTO events (occurred_at, source_file, event_type, patient_control_number, detail)"
+                " VALUES (?,?,?,?,?)",
+                (now, "scrutiny_engine", "CLAIM_FLAGGED_FOR_REVIEW", pcn,
+                 json.dumps({"issues_count": len(scrutiny_issues), "confidence": confidence_score})),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_review_queue(self, status: str = "PENDING_REVIEW") -> List[Dict[str, Any]]:
+        """Lists claims pending medical biller review."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM review_queue WHERE status=? ORDER BY created_at DESC",
+                (status,)
+            ).fetchall()
+            results = []
+            for r in rows:
+                d = dict(r)
+                d["scrutiny_issues"] = json.loads(d.get("scrutiny_issues") or "[]")
+                d["hcfa_missing"] = json.loads(d.get("hcfa_missing") or "[]")
+                d["physician_queries"] = json.loads(d.get("physician_queries") or "[]")
+                # Exclude full encounter_payload from list view for lightweight transfer
+                d.pop("encounter_payload", None)
+                results.append(d)
+            return results
+        finally:
+            conn.close()
+
+    def get_review_item(self, pcn: str) -> Optional[Dict[str, Any]]:
+        """Retrieves full detail of a flagged claim, including full encounter payload."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM review_queue WHERE patient_control_number=?", (pcn,)
+            ).fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            d["scrutiny_issues"] = json.loads(d.get("scrutiny_issues") or "[]")
+            d["hcfa_missing"] = json.loads(d.get("hcfa_missing") or "[]")
+            d["physician_queries"] = json.loads(d.get("physician_queries") or "[]")
+            d["encounter_payload"] = json.loads(d.get("encounter_payload") or "{}")
+            return d
+        finally:
+            conn.close()
+
+    def resolve_review_item(self, pcn: str, resolution_notes: str, resolved_by: str) -> bool:
+        """Marks review queue item as RESOLVED and updates events."""
+        conn = self._connect()
+        try:
+            now = self._now()
+            cur = conn.execute(
+                "UPDATE review_queue SET status='RESOLVED', resolved_at=?, resolution_notes=?,"
+                " resolved_by=? WHERE patient_control_number=?",
+                (now, resolution_notes, resolved_by, pcn),
+            )
+            conn.execute(
+                "INSERT INTO events (occurred_at, source_file, event_type, patient_control_number, detail)"
+                " VALUES (?,?,?,?,?)",
+                (now, "biller_portal", "CLAIM_REVIEW_RESOLVED", pcn,
+                 json.dumps({"resolved_by": resolved_by, "notes": resolution_notes})),
+            )
+            conn.commit()
+            return cur.rowcount > 0
         finally:
             conn.close()
