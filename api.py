@@ -14,7 +14,7 @@ import sys
 import os
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Body, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -88,6 +88,61 @@ def biller_portal():
         raise HTTPException(status_code=404, detail="Portal template not found.")
     with open(template_path, "r", encoding="utf-8") as f:
         return f.read()
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt():
+    """Search engine discovery and access rules."""
+    return "User-agent: *\nAllow: /\nAllow: /portal\nAllow: /docs\nAllow: /categories\nAllow: /products\nAllow: /contact\nDisallow: /api/\nSitemap: /sitemap.xml\n"
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    """XML sitemap index for search crawlers."""
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        '  <url><loc>/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n'
+        '  <url><loc>/portal</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n'
+        '  <url><loc>/categories</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n'
+        '  <url><loc>/products</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n'
+        '  <url><loc>/contact</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>\n'
+        '</urlset>'
+    )
+    return Response(content=xml, media_type="application/xml")
+
+@app.get("/categories")
+def categories():
+    """Clinical specialty & provider classification catalog."""
+    return {
+        "status": "OPERATIONAL",
+        "categories": [
+            {"id": "pt-rehab", "name": "Physical Therapy & Rehabilitation", "specialty": "Physical Medicine"},
+            {"id": "aprn-autonomous", "name": "Autonomous APRN Practice", "specialty": "Family & Primary Care"},
+            {"id": "orthopedics", "name": "Orthopedics & Sports Medicine", "specialty": "Surgical & Conservative"}
+        ]
+    }
+
+@app.get("/products")
+def products():
+    """Billing engine core capabilities and product modules."""
+    return {
+        "status": "OPERATIONAL",
+        "products": [
+            {"id": "clinical-coding-nlp", "name": "Clinical NLP Coding Engine", "version": "2.0"},
+            {"id": "scrutiny-8tier", "name": "8-Tier Clinical Scrutiny & CDI", "version": "2.0"},
+            {"id": "oa-transmission", "name": "Office Ally SFTP Clearinghouse Pipeline", "version": "2.0"},
+            {"id": "remittance-835", "name": "835 ERA Automated Ledger Reconciliation", "version": "2.0"}
+        ]
+    }
+
+@app.get("/contact")
+def contact():
+    """Medical billing engine support and HIPAA compliance contact."""
+    return {
+        "organization": "Autonomous Medical Billing AI Engine",
+        "compliance_officer": "compliance@medicalbilling.local",
+        "support_email": "support@medicalbilling.local",
+        "status": "OPERATIONAL"
+    }
 
 @app.post("/api/v1/encounter/process")
 def process_encounter_endpoint(req: EncounterRequest, actor: str = Depends(require_api_key)):

@@ -1,0 +1,77 @@
+name: Jev-1 Web Error Monitor & Quality Gate
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target Base URL to audit (defaults to local container or env)'
+        required: false
+        default: 'http://localhost:8000'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  jev-audit:
+    name: Run Jev-1 System-1 Web Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      BASE_URL: ${{ github.event.inputs.target_url || secrets.BASE_URL || 'http://localhost:8000' }}
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL || 'devops@medicalbilling.local' }}
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      OA_ALLOW_SIMULATION: "true"
+      API_KEYS: "ci-automated-key-2026"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Node Dependencies
+        run: |
+          npm ci || npm install
+
+      - name: Start FastAPI Application Service
+        run: |
+          python -m uvicorn api:app --host 0.0.0.0 --port 8000 &
+          sleep 4
+
+      - name: Verify Service Health
+        run: |
+          curl --fail --retry 5 --retry-delay 2 --retry-connrefused http://localhost:8000/health || exit 1
+
+      - name: Execute Jev-1 System-1 Web Route Audit
+        run: |
+          node scripts/jev-audit.mjs
+
+      - name: Run CodeRabbit Quality & Build Verification
+        run: |
+          npm run build

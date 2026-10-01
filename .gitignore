@@ -24,11 +24,12 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# Virtual environments & dependencies
 venv/
 env/
 ENV/
 .venv/
+node_modules/
 
 # Temporary & test files
 sample_clinical_note.docx

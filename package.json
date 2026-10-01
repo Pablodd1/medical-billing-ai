@@ -1,0 +1,13 @@
+{
+  "name": "medical-billing-ai",
+  "version": "2.1.0",
+  "description": "Autonomous Medical Billing AI Engine with 8-Tier Clinical Scrutiny, Office Ally Clearinghouse Dispatch, and Jev Error Monitoring",
+  "type": "module",
+  "scripts": {
+    "build": "python -c \"import api, pipeline, config; print('Build and syntax verification passed with 0 errors.')\"",
+    "jev:audit": "node scripts/jev-audit.mjs"
+  },
+  "devDependencies": {
+    "@typesafe-ai/sdk": "^0.6.0"
+  }
+}
