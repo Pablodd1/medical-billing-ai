@@ -22,6 +22,12 @@
 
 import { TypeSafeClient, choice, noul } from '@typesafe-ai/sdk';
 
+try {
+  process.loadEnvFile();
+} catch {
+  // .env file is optional; environment variables may be provided directly
+}
+
 const BASE_URL = (process.env.BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 const TYPESAFE_API_KEY = process.env.TYPESAFE_API_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -128,23 +134,24 @@ async function auditRoute(client, route) {
           error: errorMsg
         },
         questions: {
-          is_operational: noul({
-            instructions: "Is this web route operational and serving the expected HTTP response?"
-          }),
-          severity: choice({
-            criteria: {
+          is_operational: noul(
+            "Is this web route operational and serving the expected HTTP response?"
+          ),
+          severity: choice(
+            "Select the operational severity level for this HTTP response",
+            {
               none: "HTTP 200 with valid expected content, zero user impact",
               low: "Minor warning or benign redirect, performance acceptable",
               medium: "Degraded performance or formatting warning",
               high: "4xx client error or unhandled response",
               critical: "5xx server error, fatal crash, or unreachable service"
             }
-          }),
-          should_alert: noul({
-            instructions: "Does this response require immediate alert dispatch to the on-call team?"
-          })
+          ),
+          should_alert: noul(
+            "Does this response require immediate alert dispatch to the on-call team?"
+          )
         },
-        model: 'jev-1'
+        model: process.env.JEV_MODEL || 'jev-latest'
       });
 
       evaluation = {
@@ -153,7 +160,7 @@ async function auditRoute(client, route) {
         severity: evalResult.answers.severity.choice,
         should_alert: evalResult.answers.should_alert.noul > 0.5,
         alert_confidence: evalResult.answers.should_alert.noul,
-        engine: 'jev-1 (System-1 Neural Inference)'
+        engine: `jev-1 (${evalResult.model})`
       };
     } catch (sdkErr) {
       console.warn(`[WARN] Jev-1 SDK inference error: ${sdkErr.message}. Falling back to heuristic classifier.`);
