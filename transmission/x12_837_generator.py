@@ -32,6 +32,25 @@ def _as_dict(obj: Any) -> Dict[str, Any]:
     return dict(obj)
 
 
+_FILING_INDICATORS = {"MB", "MA", "MC", "CI", "BL", "HM", "CH", "VA", "WC", "OF"}
+
+
+def _filing_indicator(payer: Dict[str, Any]) -> str:
+    """SBR09 claim filing indicator. Explicit payer['claim_filing_indicator'] wins;
+    otherwise infer: Medicare Part B -> MB, Medicaid -> MC, else CI.
+    Medicare Advantage/Medigap are commercial-filed (CI) unless set explicitly."""
+    explicit = str(payer.get("claim_filing_indicator", "")).upper()
+    if explicit in _FILING_INDICATORS:
+        return explicit
+    name = str(payer.get("name", "")).lower()
+    if "medicaid" in name:
+        return "MC"
+    if "medicare" in name and not any(k in name for k in ("advantage", "supplement", "medigap")):
+        return "MB"
+    return "CI"
+
+
+
 class X12_837P_Generator:
     def __init__(
         self,
@@ -116,7 +135,7 @@ class X12_837P_Generator:
 
         # 2000B Subscriber
         body.append("HL*2*1*22*0~")
-        body.append("SBR*P*18*******CI~")
+        body.append(f"SBR*P*18*******{_filing_indicator(payer)}~")
         body.append(f"NM1*IL*1*{pat['last_name']}*{pat['first_name']}****MI*{pat['member_id']}~")
         body.append(f"N3*{pat.get('address', '450 Biscayne Blvd')}~")
         body.append(f"N4*{pat.get('city', 'Miami')}*{pat.get('state', 'FL')}*{pat.get('zip', '33132')}~")
@@ -148,7 +167,7 @@ class X12_837P_Generator:
         dx_parts = []
         for i, dx in enumerate(billing.get("diagnosis_codes", [])):
             dx_d = _as_dict(dx)
-            qual = "BK" if i == 0 else "BF"
+            qual = "ABK" if i == 0 else "ABF"
             dx_parts.append(f"{qual}:{str(dx_d['code']).replace('.', '')}")
         if dx_parts:
             body.append(f"HI*{'*'.join(dx_parts)}~")
@@ -175,7 +194,7 @@ class X12_837P_Generator:
         sec_payer_dict: Optional[Dict[str, Any]] = _as_dict(sec_payer) if sec_payer else None
         if sec_payer_dict:
             sec_member_id = pat.get("secondary_member_id") or pat.get("member_id")
-            body.append("SBR*S*18*******CI~")
+            body.append(f"SBR*S*18*******{_filing_indicator(sec_payer_dict)}~")
             # AMT*D: primary payer paid amount (claim level), when known
             primary_paid = encounter.get("primary_payer_paid_amount")
             if primary_paid is not None:
