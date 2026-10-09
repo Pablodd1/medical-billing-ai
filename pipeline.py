@@ -138,8 +138,24 @@ class AutonomousMedicalBillingPipeline:
         provider = ProviderInfo(**self._normalize_provider(provider_data))
         payer = PayerInfo(**self._normalize_payer(payer_data))
 
-        eligibility_res = self.eligibility_engine.check_eligibility(patient, payer)
-        pipeline_log.append(f"[Stage 2] 270/271 Eligibility Checked: Active={eligibility_res['is_active_coverage']}, Copay=${eligibility_res['copay_amount']}")
+        eligibility_res = self.eligibility_engine.check_eligibility(
+            patient, payer,
+            provider_npi=str(provider.billing_npi_type_2 or provider.npi or ""),
+            provider_name=str(provider.organization_name or ""),
+        )
+
+        if "is_active_coverage" not in eligibility_res:
+            pipeline_log.append(f"[Stage 2] 270 submitted ({eligibility_res.get('status')}); 271 not yet received. Claim held.")
+            return {
+                "status": "HELD_AWAITING_271",
+                "stage": "ELIGIBILITY_270_271",
+                "message": "270 sent to clearinghouse; 271 response is asynchronous. Re-run after the 271 is parsed. No claim was coded or sent.",
+                "eligibility": eligibility_res,
+                "pipeline_log": pipeline_log
+            }
+
+        sim_tag = " [SIMULATION - NOT VERIFIED COVERAGE]" if eligibility_res.get("simulation") else ""
+        pipeline_log.append(f"[Stage 2] 270/271 Eligibility Checked{sim_tag}: Active={eligibility_res['is_active_coverage']}, Copay=${eligibility_res['copay_amount']}")
 
         if not eligibility_res["is_active_coverage"]:
             return {
