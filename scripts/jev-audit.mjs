@@ -96,12 +96,18 @@ async function auditRoute(client, route) {
   let contentType = '';
   let errorMsg = null;
 
+  const authKey = process.env.API_KEY || (process.env.API_KEYS ? process.env.API_KEYS.split(',')[0].trim() : '');
+  const headers = {
+    'User-Agent': 'Jev-Monitor/1.0 (TypeSafe-AI; +https://typesafe.ai)'
+  };
+  if (authKey) {
+    headers['X-API-Key'] = authKey;
+  }
+
   try {
     const res = await fetch(targetUrl, {
       method: 'GET',
-      headers: {
-        'User-Agent': 'Jev-Monitor/1.0 (TypeSafe-AI; +https://typesafe.ai)'
-      },
+      headers,
       signal: AbortSignal.timeout(8000)
     });
     status = res.status;
