@@ -113,7 +113,8 @@ class X12_837P_Generator:
         contact_name = prov.get("contact_name", "BILLING DEPT")
         contact_phone = str(prov.get("phone", "8005551212")).replace("-", "")
         contact_email = prov.get("contact_email", prov.get("email", ""))
-        body.append(f"NM1*41*2*{prov['organization_name']}*****46*{self.config.claims_submitter_id}~")
+        org_name = prov.get("organization_name") or f"{prov.get('rendering_last_name', 'MEDICAL')} {prov.get('rendering_first_name', 'PRACTICE')}".strip() or "MEDICAL PRACTICE"
+        body.append(f"NM1*41*2*{org_name}*****46*{self.config.claims_submitter_id}~")
         per = f"PER*IC*{contact_name}*TE*{contact_phone}"
         if contact_email:
             per += f"*EM*{contact_email}"
@@ -122,13 +123,13 @@ class X12_837P_Generator:
         # 1000B Receiver
         body.append(f"NM1*40*2*{self.config.receiver_name}*****46*{self.config.receiver_id}~")
 
-        billing_npi = prov.get("billing_npi_type_2") or prov.get("npi")
-        rendering_npi = prov.get("rendering_npi_type_1") or prov.get("npi")
+        billing_npi = prov.get("billing_npi_type_2") or prov.get("npi") or prov.get("rendering_npi_type_1", "1234567890")
+        rendering_npi = prov.get("rendering_npi_type_1") or prov.get("npi") or billing_npi
 
         # 2000A Billing Provider
         body.append("HL*1**20*1~")
         body.append(f"PRV*BI*PXC*{prov.get('taxonomy_code', '207Q00000X')}~")
-        body.append(f"NM1*85*2*{prov['organization_name']}*****XX*{billing_npi}~")
+        body.append(f"NM1*85*2*{org_name}*****XX*{billing_npi}~")
         body.append(f"N3*{prov.get('address', '1200 Brickell Ave')}~")
         body.append(f"N4*{prov.get('city', 'Miami')}*{prov.get('state', 'FL')}*{prov.get('zip', '33131')}~")
         body.append(f"REF*EI*{prov.get('tax_id', '123456789')}~")
@@ -183,10 +184,18 @@ class X12_837P_Generator:
                 )
 
         # 2310B Rendering Provider
-        # Derive taxonomy code according to provider credentialing type if not explicitly set
+        # Derive taxonomy code according to provider credentialing type
         prov_type = str(prov.get("type", "")).upper()
-        default_taxonomy = "363L00000X" if "APRN" in prov_type or "NP" in prov_type else "207Q00000X"
-        taxonomy = prov.get("taxonomy_code") or default_taxonomy
+        if "APRN" in prov_type or "NP" in prov_type:
+            derived_taxonomy = "363L00000X"
+        elif "PA" in prov_type:
+            derived_taxonomy = "363A00000X"
+        else:
+            derived_taxonomy = "207Q00000X"
+
+        taxonomy = prov.get("taxonomy_code")
+        if not taxonomy or (taxonomy == "207Q00000X" and derived_taxonomy != "207Q00000X"):
+            taxonomy = derived_taxonomy
 
         body.append(
             f"NM1*82*1*{prov.get('rendering_last_name', 'Provider')}"
@@ -200,12 +209,13 @@ class X12_837P_Generator:
         if sec_payer_dict:
             sec_member_id = pat.get("secondary_member_id") or pat.get("member_id")
             body.append(f"SBR*S*18*******{_filing_indicator(sec_payer_dict)}~")
-            # Loop 2320 required OI (Other Insurance) segment: claim filing indicator / benefits assignment
-            body.append("OI***Y***Y~")
-            # AMT*D: primary payer paid amount (claim level), when known
+            # AMT*D: primary payer paid amount (claim level, Loop 2320 Pos 015), when known
             primary_paid = encounter.get("primary_payer_paid_amount")
             if primary_paid is not None:
                 body.append(f"AMT*D*{float(primary_paid):.2f}~")
+            # Loop 2320 Pos 035 required OI (Other Insurance) segment: claim filing indicator / benefits assignment
+            # OI03: Benefits Assignment (Y/N), OI06: Release of Information (Y/N/I)
+            body.append("OI***Y***Y~")
             body.append(f"NM1*IL*1*{pat['last_name']}*{pat['first_name']}****MI*{sec_member_id}~")
             body.append(f"N3*{pat.get('address', '450 Biscayne Blvd')}~")
             body.append(f"N4*{pat.get('city', 'Miami')}*{pat.get('state', 'FL')}*{pat.get('zip', '33132')}~")

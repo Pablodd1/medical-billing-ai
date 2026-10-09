@@ -79,6 +79,15 @@ class ProviderInfo(BaseModel):
             self.billing_npi_type_2 = self.npi or self.rendering_npi_type_1
         if not self.npi:
             self.npi = self.rendering_npi_type_1
+        # Set standard taxonomy code according to provider type if not explicitly set or default MD
+        if not self.taxonomy_code or self.taxonomy_code == "207Q00000X":
+            prov_type_str = str(self.type.value if hasattr(self.type, 'value') else self.type).upper()
+            if "APRN" in prov_type_str or "NP" in prov_type_str:
+                self.taxonomy_code = "363L00000X"
+            elif "PA" in prov_type_str:
+                self.taxonomy_code = "363A00000X"
+            else:
+                self.taxonomy_code = "207Q00000X"
         return self
 
 class ProviderAttestation(BaseModel):

@@ -161,6 +161,138 @@ class TestClinicalBillingPipeline(unittest.TestCase):
         self.assertIn("SBR*P*18*******MB~", edi, "Medicare Part B must have MB filing indicator")
         self.assertIn("PRV*PE*PXC*363L00000X~", edi, "APRN provider must default to 363L00000X taxonomy")
 
+    def test_clause_negation_does_not_bleed_across_sentences(self):
+        """Negation like 'without trauma' must NOT cross sentence boundaries into subsequent diagnoses."""
+        text = "Knee pain without trauma. Assessment: M23.201."
+        diagnoses = self.coder._extract_diagnoses(text)
+        codes = [d.code for d in diagnoses]
+        self.assertIn("M23.201", codes, "Definitive diagnosis M23.201 must be extracted")
+        self.assertNotIn("M25.561", codes, "Symptom knee pain M25.561 must be suppressed by M23.201")
+
+    def test_multiple_occurrences_negated_then_confirmed(self):
+        """When a condition is ruled out earlier but confirmed in Assessment, it must be extracted."""
+        text = "Emergency Dept: Ruled out S82.001. Ortho Assessment: S82.001 confirmed on repeat film."
+        diagnoses = self.coder._extract_diagnoses(text)
+        codes = [d.code for d in diagnoses]
+        self.assertIn("S82.001", codes, "Confirmed diagnosis S82.001 must be extracted")
+
+    def test_room_numbers_and_spine_levels_excluded(self):
+        """Room numbers ('room C12') and spine levels ('fracture at T12') must not be coded as diagnoses."""
+        text = "Compression fracture at T12. Patient evaluated in room C12."
+        diagnoses = self.coder._extract_diagnoses(text)
+        codes = [d.code for d in diagnoses]
+        self.assertNotIn("T12", codes, "Spine level T12 must not be extracted as diagnosis")
+        self.assertNotIn("C12", codes, "Room number C12 must not be extracted as diagnosis")
+
+    def test_disorder_and_scheduled_do_not_drop_performed_procedures(self):
+        """Word 'disorder' must not trigger 'order' exclusion; separate follow-up schedule must not drop performed work."""
+        text1 = "Procedure: 20610 performed, right knee, for meniscal disorder."
+        procs1 = [p["code"] for p in self.coder._extract_procedures(text1)]
+        self.assertIn("20610", procs1, "Performed 20610 must not be dropped due to 'disorder'")
+
+        text2 = "CPT 17000 cryotherapy performed today; follow-up scheduled in 2 wks."
+        procs2 = [p["code"] for p in self.coder._extract_procedures(text2)]
+        self.assertIn("17000", procs2, "Performed 17000 must not be dropped due to 'scheduled' follow-up")
+
+    def test_procedure_diagnosis_pointer_medical_necessity(self):
+        """Procedure diagnosis pointer must point to the clinically supporting diagnosis (Box 24E / SV107)."""
+        note = ClinicalNoteParsed(
+            raw_text="Encounter",
+            source_type=list(DocumentSourceType)[0],
+            chief_complaint="Knee pain",
+            history_of_present_illness="Hypertension I10 and meniscus derangement M23.201",
+            assessment_and_plan="Procedure: 20610 performed today right knee.",
+            time_spent_minutes=25
+        )
+        billing = self.coder.generate_coding(note)
+        proc_lines = [l for l in billing.cpt_codes if l.code == "20610"]
+        self.assertTrue(len(proc_lines) == 1)
+        self.assertEqual(proc_lines[0].dx_pointers, [2], "Knee injection 20610 must point to M23.201 (pointer 2), not I10 (pointer 1)")
+
+    def test_837p_loop_2320_segment_order(self):
+        """ASC X12 5010 standard: AMT*D (Pos 015) must precede OI (Pos 035) in Loop 2320."""
+        encounter = {
+            "encounter_id": "COB-001",
+            "patient_control_number": "COB-001",
+            "primary_payer_paid_amount": 85.00,
+            "patient": {
+                "first_name": "JOHN", "last_name": "DOE", "dob": "1970-01-01", "member_id": "JD001",
+                "secondary_payer": {"name": "AETNA SECONDARY", "payer_id": "60054", "type": "COMMERCIAL"},
+                "secondary_member_id": "AETNA12345"
+            },
+            "provider": {"rendering_first_name": "SARAH", "rendering_last_name": "ORTEGA", "npi": "1234567893", "tax_id": "123456789"},
+            "payer": {"name": "Medicare Florida", "payer_id": "00901"},
+            "billing": {
+                "total_charge": 175.00,
+                "place_of_service": "11",
+                "diagnosis_codes": [{"code": "I10", "description": "HTN"}],
+                "cpt_codes": [{"code": "99214", "modifiers": [], "charge": 175.00, "units": 1, "dx_pointers": [1]}]
+            }
+        }
+        generator = X12_837P_Generator()
+        edi = generator.generate_837p(encounter)
+        amt_pos = edi.find("AMT*D*85.00~")
+        oi_pos = edi.find("OI***Y***Y~")
+        self.assertTrue(amt_pos != -1, "AMT*D segment must be emitted")
+        self.assertTrue(oi_pos != -1, "OI segment must be emitted")
+        self.assertTrue(amt_pos < oi_pos, "AMT*D must precede OI in Loop 2320")
+
+    def test_simulation_ledger_status(self):
+        """Simulation mode must record SIMULATED_NOT_TRANSMITTED in the ledger, never SUBMITTED."""
+        import uuid
+        uid = uuid.uuid4().hex[:6]
+        enc_id = f"TEST-SIM-{uid}"
+        res = self.pipeline.process_encounter(
+            raw_doc_or_content="Patient: JANE DOE. HTN I10. Plan: Continue meds.",
+            doc_type=list(DocumentSourceType)[0],
+            patient_data={"first_name": "JANE", "last_name": "DOE", "dob": "1975-05-10", "member_id": f"JD-{uid}"},
+            provider_data={"name": "DR. JAMES RIVERA", "npi": "9876543210", "type": "MD", "tax_id": "123456789"},
+            payer_data={"name": "Florida Blue", "payer_id": "00590", "type": "COMMERCIAL"},
+            encounter_id=enc_id
+        )
+        self.assertEqual(res.get("status"), "TRANSMITTED_CLEAN_CLAIM")
+        claim = self.pipeline.dispatcher.ledger.get_claim(enc_id)
+        self.assertIsNotNone(claim)
+        self.assertEqual(claim.get("status"), "SIMULATED_NOT_TRANSMITTED", "Simulation claim must be labeled SIMULATED_NOT_TRANSMITTED in ledger")
+
+    def test_persistent_duplicate_claim_guard(self):
+        """Exact duplicate encounter must be caught by Tier 8 Duplicate Claim Guard."""
+        import uuid
+        uid = uuid.uuid4().hex[:6]
+        enc_id_1 = f"TEST-DUP-1-{uid}"
+        enc_id_2 = f"TEST-DUP-2-{uid}"
+        shared_pat = {"first_name": "CARLOS", "last_name": "SANTANA", "dob": "1960-03-20", "member_id": f"CS-{uid}"}
+        shared_prov = {"name": "DR. JAMES RIVERA", "npi": "9876543210", "type": "MD", "tax_id": "123456789"}
+        shared_payer = {"name": "Florida Blue", "payer_id": "00590", "type": "COMMERCIAL"}
+
+        # First encounter: clean pass
+        res1 = self.pipeline.process_encounter(
+            raw_doc_or_content="Patient: CARLOS SANTANA. HTN I10. Plan: Continue meds.",
+            doc_type=list(DocumentSourceType)[0],
+            patient_data=shared_pat,
+            provider_data=shared_prov,
+            payer_data=shared_payer,
+            encounter_id=enc_id_1,
+            date_of_service="2026-09-20"
+        )
+        self.assertEqual(res1.get("status"), "TRANSMITTED_CLEAN_CLAIM")
+
+        # Second encounter with identical patient, DOS, CPT, and NPI: MUST be flagged as duplicate
+        res2 = self.pipeline.process_encounter(
+            raw_doc_or_content="Patient: CARLOS SANTANA. HTN I10. Plan: Continue meds.",
+            doc_type=list(DocumentSourceType)[0],
+            patient_data=shared_pat,
+            provider_data=shared_prov,
+            payer_data=shared_payer,
+            encounter_id=enc_id_2,
+            date_of_service="2026-09-20"
+        )
+        self.assertEqual(res2.get("status"), "FLAGGED_FOR_HUMAN_REVIEW")
+        issue_codes = [i["code"] for i in res2.get("scrutiny_issues", [])]
+        self.assertIn("DUPLICATE_CLAIM_DETECTED", issue_codes, "Duplicate claim must be detected by Tier 8 Scrutiny")
+
 
 if __name__ == "__main__":
     unittest.main()
+
+

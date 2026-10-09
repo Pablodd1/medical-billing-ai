@@ -31,8 +31,26 @@ class MedicalBillingScrutinizer:
     Payer Timely Filing Limits, and Duplicate Claim Fingerprinting.
     """
 
-    def __init__(self):
+    def __init__(self, ledger: Optional[Any] = None):
+        self.ledger = ledger
         self.submitted_claims_fingerprints: Set[str] = set()
+        if self.ledger and hasattr(self.ledger, "get_all_fingerprints"):
+            try:
+                self.submitted_claims_fingerprints.update(self.ledger.get_all_fingerprints())
+            except Exception:
+                pass
+
+    def register_submitted_fingerprint(self, fingerprint: str, pcn: str = "") -> None:
+        """Registers a submitted claim fingerprint in memory and persistent database."""
+        if not fingerprint:
+            return
+        self.submitted_claims_fingerprints.add(fingerprint)
+        if self.ledger and hasattr(self.ledger, "register_fingerprint"):
+            try:
+                self.ledger.register_fingerprint(fingerprint, pcn)
+            except Exception:
+                pass
+
 
     FCSO_LCD_RULES = {
         "82306": {
@@ -92,7 +110,17 @@ class MedicalBillingScrutinizer:
         payer = encounter.get("payer", {})
         dos = encounter.get("date_of_service", datetime.now().strftime("%Y-%m-%d"))
 
-        # TIER 1: Clinical Note Completeness & E/M MDM Scrutiny
+        # TIER 1: Clinical Note Completeness, Diagnosis Presence & E/M MDM Scrutiny
+        dx_codes = billing.get("diagnosis_codes", [])
+        if not dx_codes:
+            issues.append({
+                "tier": "Tier 1: Clinical Documentation & Coding Integrity",
+                "severity": "CRITICAL",
+                "code": "MISSING_DIAGNOSES",
+                "message": "Encounter has no valid ICD-10 diagnosis codes. Cannot bill encounter without primary diagnosis."
+            })
+            confidence -= 0.50
+
         cpt_codes = billing.get("cpt_codes", [])
         em_code = cpt_codes[0].get("code", "") if cpt_codes and isinstance(cpt_codes[0], dict) else (cpt_codes[0].code if cpt_codes else "")
         if em_code.startswith("992"):
@@ -139,7 +167,7 @@ class MedicalBillingScrutinizer:
         passed = (len([i for i in issues if i["severity"] == "CRITICAL"]) == 0) and (confidence >= 0.90)
 
         if passed:
-            self.submitted_claims_fingerprints.add(fingerprint)
+            self.register_submitted_fingerprint(fingerprint, encounter.get("encounter_id", ""))
 
         clean_claim = encounter if passed else {}
 
@@ -249,7 +277,14 @@ class MedicalBillingScrutinizer:
         raw_fingerprint = f"{member_id}|{dos}|{cpts_str}|{rendering_npi}"
         fingerprint_hash = hashlib.sha256(raw_fingerprint.encode()).hexdigest()
 
-        if fingerprint_hash in self.submitted_claims_fingerprints:
+        is_dup = (fingerprint_hash in self.submitted_claims_fingerprints)
+        if not is_dup and self.ledger and hasattr(self.ledger, "has_fingerprint"):
+            try:
+                is_dup = self.ledger.has_fingerprint(fingerprint_hash)
+            except Exception:
+                pass
+
+        if is_dup:
             issues.append({
                 "tier": "Tier 8: Duplicate Claim Guard",
                 "severity": "CRITICAL",

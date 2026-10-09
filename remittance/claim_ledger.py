@@ -70,6 +70,11 @@ CREATE TABLE IF NOT EXISTS review_queue (
     resolved_by TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_rq_status ON review_queue(status);
+CREATE TABLE IF NOT EXISTS claim_fingerprints (
+    fingerprint TEXT PRIMARY KEY,
+    patient_control_number TEXT,
+    registered_at TEXT
+);
 """
 
 _FINAL_STATUSES = {"PAID", "DENIED", "REJECTED_999", "REJECTED_277CA", "REJECTED_TA1"}
@@ -106,15 +111,16 @@ class ClaimLedger:
                      isa13: str = "", gs06: str = "", simulation: bool = False):
         conn = self._connect()
         try:
+            batch_status = "SIMULATED_NOT_TRANSMITTED" if simulation else "SUBMITTED"
             conn.execute(
                 "INSERT OR REPLACE INTO batches (batch_id, filename, remote_path, isa13, gs06,"
                 " submitted_at, simulation, status) VALUES (?,?,?,?,?,?,?,?)",
-                (batch_id, filename, remote_path, isa13, gs06, self._now(), int(simulation), "SUBMITTED"),
+                (batch_id, filename, remote_path, isa13, gs06, self._now(), int(simulation), batch_status),
             )
             conn.execute(
                 "INSERT INTO events (occurred_at, source_file, event_type, batch_id, detail)"
                 " VALUES (?,?,?,?,?)",
-                (self._now(), filename, "BATCH_SUBMITTED", batch_id,
+                (self._now(), filename, "BATCH_SUBMITTED" if not simulation else "BATCH_SIMULATED", batch_id,
                  json.dumps({"remote_path": remote_path, "simulation": simulation})),
             )
             conn.commit()
@@ -126,16 +132,17 @@ class ClaimLedger:
         try:
             for c in claims:
                 now = self._now()
+                claim_status = c.get("status", "SUBMITTED")
                 conn.execute(
                     "INSERT INTO claims (patient_control_number, batch_id, encounter_id,"
                     " patient_name, total_charge, status, last_event, updated_at)"
                     " VALUES (?,?,?,?,?,?,?,?)"
                     " ON CONFLICT(patient_control_number) DO UPDATE SET"
-                    " batch_id=excluded.batch_id, status='SUBMITTED',"
+                    " batch_id=excluded.batch_id, status=excluded.status,"
                     " last_event='BATCH_DISPATCHED', updated_at=excluded.updated_at",
                     (c["patient_control_number"], batch_id, c.get("encounter_id", ""),
                      c.get("patient_name", ""), float(c.get("total_charge", 0) or 0),
-                     "SUBMITTED", "BATCH_DISPATCHED", now),
+                     claim_status, "BATCH_DISPATCHED", now),
                 )
             conn.commit()
         finally:
@@ -383,3 +390,38 @@ class ClaimLedger:
             return cur.rowcount > 0
         finally:
             conn.close()
+
+    def register_fingerprint(self, fingerprint: str, pcn: str = "") -> None:
+        """Persists a duplicate claim hash to prevent duplicate billing across server restarts."""
+        if not fingerprint:
+            return
+        conn = self._connect()
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO claim_fingerprints (fingerprint, patient_control_number, registered_at) VALUES (?, ?, ?)",
+                (fingerprint, pcn, self._now())
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def has_fingerprint(self, fingerprint: str) -> bool:
+        """Returns True if the claim fingerprint has already been registered in the database."""
+        if not fingerprint:
+            return False
+        conn = self._connect()
+        try:
+            row = conn.execute("SELECT 1 FROM claim_fingerprints WHERE fingerprint = ?", (fingerprint,)).fetchone()
+            return row is not None
+        finally:
+            conn.close()
+
+    def get_all_fingerprints(self) -> set:
+        """Returns set of all registered claim fingerprints."""
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT fingerprint FROM claim_fingerprints").fetchall()
+            return {r[0] for r in rows}
+        finally:
+            conn.close()
+

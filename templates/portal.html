@@ -106,8 +106,14 @@
             <!-- Provider Row -->
             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
               <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">Provider &amp; Credentialing</span>
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-3 gap-2">
                 <input id="provName" type="text" placeholder="Provider Name" value="DR. SARAH ORTEGA" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <select id="provType" class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                  <option value="APRN" selected>APRN / NP</option>
+                  <option value="MD">MD (Physician)</option>
+                  <option value="DO">DO (Osteopath)</option>
+                  <option value="PA">PA (Physician Asst)</option>
+                </select>
                 <input id="provNpi" type="text" placeholder="Rendering NPI" value="1234567893" required class="text-sm px-2.5 py-1.5 border rounded bg-white font-mono">
               </div>
               <div class="mt-2 flex flex-col space-y-1 text-xs text-slate-600">
@@ -294,6 +300,7 @@
       document.getElementById('patDob').value = "1968-04-15";
       document.getElementById('patMemberId').value = "MJ99887766";
       document.getElementById('provName').value = "DR. SARAH ORTEGA";
+      document.getElementById('provType').value = "APRN";
       document.getElementById('provNpi').value = "1234567893";
       document.getElementById('provProtocol').checked = false; // Default unchecked to demonstrate Tier 2 scrutiny!
       document.getElementById('provAutonomous').checked = false;
@@ -333,6 +340,7 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         },
         provider: {
           name: document.getElementById('provName').value,
+          type: document.getElementById('provType').value,
           npi: document.getElementById('provNpi').value,
           tax_id: "12-3456789",
           has_collaborative_protocol: document.getElementById('provProtocol').checked,

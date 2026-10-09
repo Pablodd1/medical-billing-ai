@@ -51,8 +51,6 @@ class AutonomousMedicalBillingPipeline:
         self.ingestor = MultimodalDocumentIngestor()
         self.eligibility_engine = RealTimeEligibilityEngine()
         self.coding_engine = ClinicalCodingEngine()
-        self.hcfa_auditor = HCFA1500ExtractorAndAuditor()
-        self.scrutinizer = MedicalBillingScrutinizer()
         self.x12_generator = X12_837P_Generator(config=self.config)
         # Real SFTP when credentials exist; otherwise a clearly-labelled
         # simulation so dev/test environments keep working.
@@ -60,6 +58,8 @@ class AutonomousMedicalBillingPipeline:
             config=self.config,
             allow_simulation=not self.config.has_sftp_credentials,
         )
+        self.scrutinizer = MedicalBillingScrutinizer(ledger=self.dispatcher.ledger)
+        self.hcfa_auditor = HCFA1500ExtractorAndAuditor()
         self.era_parser = ERA_835_Parser()
         self.appeals_engine = DenialAppealsEngine()
 
@@ -81,8 +81,20 @@ class AutonomousMedicalBillingPipeline:
         # NPI aliases
         if "npi" in d and not d.get("rendering_npi_type_1"):
             d["rendering_npi_type_1"] = d["npi"]
-        # Provider type default
-        d.setdefault("type", "APRN")
+
+        # Provider type detection & default
+        name_str = f"{d.get('name', '')} {d.get('organization_name', '')} {d.get('rendering_last_name', '')} {d.get('type', '')}".upper()
+        if "APRN" in name_str or "NP" in name_str:
+            d["type"] = "APRN"
+        elif "PA" in name_str:
+            d["type"] = "PA"
+        elif "DO" in name_str:
+            d["type"] = "DO"
+        elif "MD" in name_str:
+            d["type"] = "MD"
+        else:
+            d.setdefault("type", "APRN")
+
         d.setdefault("specialty", "Physical Medicine & Rehabilitation")
         # Remove unknown fields that ProviderInfo doesn't accept
         known = {
@@ -228,13 +240,16 @@ class AutonomousMedicalBillingPipeline:
         dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=f"BAT_{encounter_id}")
         # Record the claim in the ledger so real 999/277CA/835 files can be
         # reconciled against it by patient control number (CLM01).
+        is_sim = bool(dispatch_res.get("simulation"))
+        ledger_status = "SIMULATED_NOT_TRANSMITTED" if is_sim else "SUBMITTED"
         self.dispatcher.ledger.record_claims_in_batch(f"BAT_{encounter_id}", [{
             "patient_control_number": encounter_dict["patient_control_number"],
             "encounter_id": encounter_id,
             "patient_name": f"{patient.last_name}, {patient.first_name}" if hasattr(patient, "last_name") else "",
             "total_charge": billing.total_charge,
+            "status": ledger_status,
         }])
-        if dispatch_res.get("simulation"):
+        if is_sim:
             pipeline_log.append("[Stage 6] SIMULATION MODE: 837P generated but NOT transmitted (no OA SFTP credentials configured).")
         else:
             pipeline_log.append("[Stage 6] 837P uploaded to Office Ally /inbound via SFTP; awaiting real 999/277CA from /outbound.")
@@ -282,18 +297,20 @@ class AutonomousMedicalBillingPipeline:
         batch_id = f"BAT_HITL_{patient_control_number}"
         dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=batch_id)
 
-        # Register claim fingerprint with scrutinizer to block any subsequent duplicate submissions
-        if "claim_fingerprint_hash" in encounter_dict and encounter_dict["claim_fingerprint_hash"]:
-            self.scrutinizer.submitted_claims_fingerprints.add(encounter_dict["claim_fingerprint_hash"])
-        elif item.get("claim_fingerprint"):
-            self.scrutinizer.submitted_claims_fingerprints.add(item["claim_fingerprint"])
+        # Register claim fingerprint with scrutinizer and persistent ledger to block any subsequent duplicates
+        fp = encounter_dict.get("claim_fingerprint_hash") or item.get("claim_fingerprint")
+        if fp:
+            self.scrutinizer.register_submitted_fingerprint(fp, patient_control_number)
 
-        # Update ledger: record claims in batch (moves status to SUBMITTED)
+        # Update ledger: record claims in batch (SUBMITTED for real SFTP, SIMULATED_NOT_TRANSMITTED for simulation)
+        is_sim = bool(dispatch_res.get("simulation"))
+        ledger_status = "SIMULATED_NOT_TRANSMITTED" if is_sim else "SUBMITTED"
         self.dispatcher.ledger.record_claims_in_batch(batch_id, [{
             "patient_control_number": patient_control_number,
             "encounter_id": item.get("encounter_id", patient_control_number),
             "patient_name": item.get("patient_name", ""),
             "total_charge": item.get("total_charge", 0.0),
+            "status": ledger_status,
         }])
 
         # Mark review item resolved
