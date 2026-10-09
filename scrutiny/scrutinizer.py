@@ -96,7 +96,7 @@ class MedicalBillingScrutinizer:
         cpt_codes = billing.get("cpt_codes", [])
         em_code = cpt_codes[0].get("code", "") if cpt_codes and isinstance(cpt_codes[0], dict) else (cpt_codes[0].code if cpt_codes else "")
         if em_code.startswith("992"):
-            mdm_issues, mdm_penalty = self._validate_em_documentation(em_code, clinical_note)
+            mdm_issues, mdm_penalty = self._validate_em_documentation(em_code, clinical_note, billing)
             issues.extend(mdm_issues)
             confidence -= mdm_penalty
 
@@ -184,7 +184,22 @@ class MedicalBillingScrutinizer:
             dos_date = datetime.strptime(dos_str, "%Y-%m-%d").date()
             today = datetime.now().date()
             days_elapsed = (today - dos_date).days
+            if days_elapsed < 0:
+                issues.append({
+                    "tier": "Tier 7: Timely Filing",
+                    "severity": "CRITICAL",
+                    "code": "FUTURE_DATE_OF_SERVICE",
+                    "message": f"Claim DOS ({dos_str}) is in the future. Cannot bill unrendered services."
+                })
+                penalty += 0.50
         except Exception:
+            issues.append({
+                "tier": "Tier 7: Timely Filing",
+                "severity": "CRITICAL",
+                "code": "UNPARSABLE_DOS",
+                "message": f"Date of Service '{dos_str}' is invalid or unparsable. Expected YYYY-MM-DD format."
+            })
+            penalty += 0.40
             days_elapsed = 0
 
         days_remaining = deadline_days - days_elapsed
@@ -245,7 +260,7 @@ class MedicalBillingScrutinizer:
 
         return fingerprint_hash, issues, penalty
 
-    def _validate_em_documentation(self, em_code: str, note: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
+    def _validate_em_documentation(self, em_code: str, note: Dict[str, Any], billing: Optional[Dict[str, Any]] = None) -> Tuple[List[Dict[str, Any]], float]:
         issues = []
         penalty = 0.0
 
@@ -272,9 +287,10 @@ class MedicalBillingScrutinizer:
             penalty += 0.30
 
         if em_code == "99214":
-            has_rx_mgmt = any(w in assessment_plan.lower() for w in ["prescription", "prescribed", "refilled", "medication"])
+            rx_terms = ["prescription", "prescribed", "refilled", "medication", "ibuprofen", "tid", "bid", "qd", "prn", "mg", "tablets", "capsules"]
+            has_rx_mgmt = any(w in assessment_plan.lower() for w in rx_terms)
             has_sufficient_time = time_spent_min >= 30
-            diagnoses_count = len(note.get("diagnoses", []))
+            diagnoses_count = len(billing.get("diagnosis_codes", [])) if billing else len(note.get("diagnoses", []))
 
             if not (has_rx_mgmt or diagnoses_count >= 2 or has_sufficient_time):
                 issues.append({
@@ -381,6 +397,21 @@ class MedicalBillingScrutinizer:
                             "message": f"CPT {col1} billed alongside {col2} requires Modifier -{req_mod}. {edit['reason']}."
                         })
                         penalty += 0.30
+
+        # MUE (Medically Unlikely Edits) Unit Limits
+        for item in cpt_items:
+            code = item.get("code") if isinstance(item, dict) else item.code
+            units = item.get("units", 1) if isinstance(item, dict) else getattr(item, "units", 1)
+            if code in self.MUE_LIMITS:
+                max_units = self.MUE_LIMITS[code]
+                if units > max_units:
+                    issues.append({
+                        "tier": "Tier 4: NCCI MUE Edits",
+                        "severity": "CRITICAL",
+                        "code": "MUE_UNITS_EXCEEDED",
+                        "message": f"CPT {code} billed for {units} unit(s), exceeding CMS MUE limit of {max_units} unit(s) per date of service."
+                    })
+                    penalty += 0.35
 
         return issues, penalty
 

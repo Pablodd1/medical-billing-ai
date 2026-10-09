@@ -237,13 +237,13 @@ class MultimodalDocumentIngestor:
         - 10: Telehealth Provided in Patient's Home
         """
         text_lower = text.lower()
-        if any(term in text_lower for term in ["assisted living", "alf", "senior living facility", "group home", "memory care facility"]):
+        if re.search(r"\b(?:assisted living|alf|senior living facility|group home|memory care facility)\b", text_lower):
             return "13"
-        elif any(term in text_lower for term in ["home visit", "patient residence", "patient home", "domiciliary visit", "house call"]):
+        elif re.search(r"\b(?:home visit|patient residence|patient home|domiciliary visit|house call)\b", text_lower):
             return "12"
-        elif any(term in text_lower for term in ["telehealth in home", "virtual visit at home", "telemedicine at home"]):
+        elif re.search(r"\b(?:telehealth in home|virtual visit at home|telemedicine at home)\b", text_lower):
             return "10"
-        elif any(term in text_lower for term in ["telehealth", "telemedicine", "virtual visit", "video visit", "audio/video encounter", "doxy.me", "zoom medical"]):
+        elif re.search(r"\b(?:telehealth|telemedicine|virtual visit|video visit|audio/video encounter|doxy\.me|zoom medical)\b", text_lower):
             return "02"
         else:
             return "11"
@@ -256,26 +256,35 @@ class MultimodalDocumentIngestor:
         ap = ""
         time_spent = 0
 
-        cc_match = re.search(r"(?:Chief Complaint|CC|Reason for Visit)[:\s]+(.*?)(?=\n[A-Z]|History|HPI|Exam|Assessment|$)", text, re.IGNORECASE | re.DOTALL)
+        cc_match = re.search(r"(?:Chief Complaint|CC|Reason for Visit)[:\s]+(.*?)(?=\n\s*(?:History|HPI|ROS|Exam|Assessment|A&P|Plan|Signature)|$)", text, re.IGNORECASE | re.DOTALL)
         if cc_match:
             cc = cc_match.group(1).strip()
         elif "complains of" in text.lower() or "c/o" in text.lower():
             lines = [l for l in text.split("\n") if "complains of" in l.lower() or "c/o" in l.lower()]
             cc = lines[0] if lines else "Medical Consultation"
 
-        hpi_match = re.search(r"(?:HPI|History of Present Illness)[:\s]+(.*?)(?=\n[A-Z]|ROS|Exam|Assessment|A&P|$)", text, re.IGNORECASE | re.DOTALL)
+        hpi_match = re.search(r"(?:HPI|History of Present Illness)[:\s]+(.*?)(?=\n\s*(?:ROS|Exam|Physical Exam|Assessment|A&P|Plan|Signature)|$)", text, re.IGNORECASE | re.DOTALL)
         if hpi_match:
             hpi = hpi_match.group(1).strip()
         else:
             hpi = text[:300].strip()
 
-        ap_match = re.search(r"(?:Assessment and Plan|Assessment & Plan|A&P|Plan|Impression)[:\s]+(.*?)(?=\n[A-Z]|Signature|Time|$)", text, re.IGNORECASE | re.DOTALL)
+        # Capture Assessment & Plan together, or separate Assessment / Plan sections
+        ap_match = re.search(r"(?:Assessment and Plan|Assessment & Plan|A&P|Impression and Plan)[:\s]+(.*?)(?=\n\s*(?:Signature|Time|Provider|Dr\.)|$)", text, re.IGNORECASE | re.DOTALL)
         if ap_match:
             ap = ap_match.group(1).strip()
         else:
-            ap = text[-400:].strip() if len(text) > 400 else text
+            # Check separate Assessment: ... Plan: ...
+            assessment_match = re.search(r"(?:Assessment|Impression)[:\s]+(.*?)(?=\n\s*(?:Plan|Signature|Time|Provider|Dr\.)|$)", text, re.IGNORECASE | re.DOTALL)
+            plan_match = re.search(r"(?:Plan|Recommendation)[:\s]+(.*?)(?=\n\s*(?:Signature|Time|Provider|Dr\.)|$)", text, re.IGNORECASE | re.DOTALL)
+            if assessment_match or plan_match:
+                ass_text = assessment_match.group(1).strip() if assessment_match else ""
+                pln_text = plan_match.group(1).strip() if plan_match else ""
+                ap = f"Assessment: {ass_text}\nPlan: {pln_text}".strip()
+            else:
+                ap = text[-400:].strip() if len(text) > 400 else text
 
-        time_match = re.search(r"(\d+)\s*(?:minutes|mins|min)", text, re.IGNORECASE)
+        time_match = re.search(r"(\d+)\s*(?:minutes|mins|min)\b", text, re.IGNORECASE)
         if time_match:
             time_spent = int(time_match.group(1))
 

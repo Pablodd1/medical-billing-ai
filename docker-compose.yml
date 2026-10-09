@@ -10,7 +10,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - SUBMITTER_ID=MAGNOLIA_HEALTH
-      - OFFICE_ALLY_SFTP_HOST=sftp.officeally.com
+      - OA_CLAIMS_SUBMITTER_ID=MAGNOLIA_HEALTH
+      - OA_SFTP_HOST=ftp10.officeally.com
+      - OA_ALLOW_SIMULATION=true
       - PORT=8000
     volumes:
       - .:/app

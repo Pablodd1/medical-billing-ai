@@ -23,6 +23,10 @@ COPY . .
 # Expose FastAPI port
 EXPOSE 8000
 
+# Create non-root user for least privilege compliance (HIPAA Security Rule)
+RUN useradd -u 1001 -m appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1

@@ -32,7 +32,7 @@
         </span>
         <div class="flex items-center space-x-2 text-xs bg-indigo-800/80 px-3 py-1.5 rounded-lg border border-indigo-700">
           <i class="fa-solid fa-key text-amber-400"></i>
-          <input id="apiKeyInput" type="password" value="smoke-test-key-2026" class="bg-transparent text-white focus:outline-none w-36 font-mono" title="API Key">
+          <input id="apiKeyInput" type="password" value="" placeholder="Enter API Key" class="bg-transparent text-white focus:outline-none w-36 font-mono" title="API Key">
         </div>
       </div>
     </div>
@@ -322,7 +322,9 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         provider: {
           name: document.getElementById('provName').value,
           npi: document.getElementById('provNpi').value,
-          tax_id: "12-3456789"
+          tax_id: "12-3456789",
+          has_collaborative_protocol: true,
+          fl_autonomous_registered: false
         },
         payer: {
           payer_id: "00901",
@@ -352,6 +354,16 @@ Dr. James Rivera, MD     NPI: 9876543210`;
       }
     }
 
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function renderResults(res) {
       document.getElementById('resultsPlaceholder').classList.add('hidden');
       document.getElementById('resultsContent').classList.remove('hidden');
@@ -361,6 +373,7 @@ Dr. James Rivera, MD     NPI: 9876543210`;
       const title = document.getElementById('statusTitle');
       const desc = document.getElementById('statusDesc');
       const conf = document.getElementById('confidenceBadge');
+      const quickActionArea = document.getElementById('quickActionArea');
 
       if (isFlagged) {
         banner.className = "p-4 rounded-lg flex items-center justify-between badge-flag border border-amber-300";
@@ -369,42 +382,65 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         conf.className = "text-xs px-2.5 py-1 rounded font-bold bg-amber-200 text-amber-900";
         conf.innerText = `Confidence: ${(res.confidence_score * 100).toFixed(0)}%`;
 
-        document.getElementById('quickActionArea').innerHTML = `
-          <div class="p-3 bg-amber-50 rounded-lg border border-amber-200 flex justify-between items-center">
-            <div>
-              <p class="text-xs font-bold text-amber-900">Saved to HITL Review Queue</p>
-              <p class="text-xs text-amber-700">Approve directly or view in Queue tab.</p>
-            </div>
-            <button onclick="approveClaim('${res.patient_control_number}')" class="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow">
-              <i class="fa-solid fa-check mr-1"></i> Approve &amp; Transmit
-            </button>
-          </div>
-        `;
+        quickActionArea.innerHTML = "";
+        const box = document.createElement('div');
+        box.className = "p-3 bg-amber-50 rounded-lg border border-amber-200 flex justify-between items-center";
+        
+        const textDiv = document.createElement('div');
+        const p1 = document.createElement('p');
+        p1.className = "text-xs font-bold text-amber-900";
+        p1.textContent = "Saved to HITL Review Queue";
+        const p2 = document.createElement('p');
+        p2.className = "text-xs text-amber-700";
+        p2.textContent = "Approve directly or view in Queue tab.";
+        textDiv.appendChild(p1);
+        textDiv.appendChild(p2);
+
+        const btn = document.createElement('button');
+        btn.className = "text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow";
+        btn.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Approve &amp; Transmit`;
+        btn.addEventListener('click', () => approveClaim(res.patient_control_number));
+
+        box.appendChild(textDiv);
+        box.appendChild(btn);
+        quickActionArea.appendChild(box);
       } else {
+        const isSim = (res.clearinghouse_dispatch && res.clearinghouse_dispatch.simulation) || 
+                      (res.pipeline_log && res.pipeline_log.some(l => l.includes("SIMULATION")));
         banner.className = "p-4 rounded-lg flex items-center justify-between badge-pass border border-emerald-300";
-        title.innerText = "TRANSMITTED CLEAN CLAIM";
-        desc.innerText = "837P EDI generated and dispatched to Office Ally SFTP.";
+        title.innerText = isSim ? "CLEAN CLAIM (SIMULATION MODE)" : "TRANSMITTED CLEAN CLAIM";
+        desc.innerText = isSim 
+          ? "837P EDI generated and simulated. No live clearinghouse transmission occurred." 
+          : "837P EDI generated and dispatched to Office Ally SFTP.";
         conf.className = "text-xs px-2.5 py-1 rounded font-bold bg-emerald-200 text-emerald-900";
         conf.innerText = `Confidence: 100%`;
-        document.getElementById('quickActionArea').innerHTML = ``;
+        quickActionArea.innerHTML = "";
       }
 
-      // Populate issues
+      // Populate issues safely
       const issuesDiv = document.getElementById('issuesList');
       issuesDiv.innerHTML = "";
       if (res.scrutiny_issues && res.scrutiny_issues.length > 0) {
         res.scrutiny_issues.forEach(iss => {
           const item = document.createElement('div');
           item.className = "p-2.5 text-xs bg-slate-50 border-l-4 border-amber-500 rounded text-slate-700";
-          item.innerHTML = `<strong>${iss.tier || 'Scrutiny'}:</strong> ${iss.message || JSON.stringify(iss)}`;
+          const strong = document.createElement('strong');
+          strong.textContent = (iss.tier || 'Scrutiny') + ": ";
+          item.appendChild(strong);
+          const span = document.createElement('span');
+          span.textContent = iss.message || JSON.stringify(iss);
+          item.appendChild(span);
           issuesDiv.appendChild(item);
         });
       } else {
-        issuesDiv.innerHTML = `<p class="text-xs text-emerald-700 bg-emerald-50 p-2 rounded"><i class="fa-solid fa-circle-check mr-1"></i> 8-Tier Scrutiny Passed Cleanly.</p>`;
+        const p = document.createElement('p');
+        p.className = "text-xs text-emerald-700 bg-emerald-50 p-2 rounded";
+        p.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> 8-Tier Scrutiny Passed Cleanly.`;
+        issuesDiv.appendChild(p);
       }
 
       // Log
-      document.getElementById('pipelineLog').innerText = (res.pipeline_log || []).join('\n');
+      document.getElementById('pipelineLog').textContent = (res.pipeline_log || []).join('\n');
     }
 
     async function loadQueue() {
@@ -424,18 +460,45 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         data.queue.forEach(item => {
           const tr = document.createElement('tr');
           const issueStr = (item.scrutiny_issues || []).map(i => i.code || i.tier).join(', ') || 'Review required';
-          tr.innerHTML = `
-            <td class="py-3 px-4 font-mono font-bold text-slate-900">${item.patient_control_number}</td>
-            <td class="py-3 px-4 font-medium">${item.patient_name || 'N/A'}</td>
-            <td class="py-3 px-4 font-bold text-indigo-600">$${(item.total_charge || 0).toFixed(2)}</td>
-            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-xs badge-flag">${issueStr}</span></td>
-            <td class="py-3 px-4 text-xs text-slate-500">${item.created_at || 'Just now'}</td>
-            <td class="py-3 px-4 text-right">
-              <button onclick="approveClaim('${item.patient_control_number}')" class="text-xs px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow">
-                Approve &amp; Send
-              </button>
-            </td>
-          `;
+
+          const tdPcn = document.createElement('td');
+          tdPcn.className = "py-3 px-4 font-mono font-bold text-slate-900";
+          tdPcn.textContent = item.patient_control_number;
+
+          const tdName = document.createElement('td');
+          tdName.className = "py-3 px-4 font-medium";
+          tdName.textContent = item.patient_name || 'N/A';
+
+          const tdCharge = document.createElement('td');
+          tdCharge.className = "py-3 px-4 font-bold text-indigo-600";
+          tdCharge.textContent = "$" + (item.total_charge || 0).toFixed(2);
+
+          const tdIssues = document.createElement('td');
+          tdIssues.className = "py-3 px-4";
+          const spanBadge = document.createElement('span');
+          spanBadge.className = "px-2 py-0.5 rounded text-xs badge-flag";
+          spanBadge.textContent = issueStr;
+          tdIssues.appendChild(spanBadge);
+
+          const tdDate = document.createElement('td');
+          tdDate.className = "py-3 px-4 text-xs text-slate-500";
+          tdDate.textContent = item.created_at || 'Just now';
+
+          const tdAction = document.createElement('td');
+          tdAction.className = "py-3 px-4 text-right";
+          const btn = document.createElement('button');
+          btn.className = "text-xs px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded shadow";
+          btn.textContent = "Approve & Send";
+          btn.addEventListener('click', () => approveClaim(item.patient_control_number));
+          tdAction.appendChild(btn);
+
+          tr.appendChild(tdPcn);
+          tr.appendChild(tdName);
+          tr.appendChild(tdCharge);
+          tr.appendChild(tdIssues);
+          tr.appendChild(tdDate);
+          tr.appendChild(tdAction);
+
           tbody.appendChild(tr);
         });
       } catch (err) {
@@ -493,13 +556,21 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         cardsDiv.innerHTML = "";
         const byStatus = data.by_status || {};
         for (const [status, metrics] of Object.entries(byStatus)) {
-          cardsDiv.innerHTML += `
-            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-xs font-semibold text-slate-500 uppercase">${status}</span>
-              <div class="text-xl font-bold text-slate-900 mt-1">${metrics.count}</div>
-              <div class="text-xs text-slate-400 mt-0.5">$${metrics.charged.toFixed(2)} billed</div>
-            </div>
-          `;
+          const card = document.createElement('div');
+          card.className = "p-4 bg-slate-50 rounded-lg border border-slate-200";
+          const sSpan = document.createElement('span');
+          sSpan.className = "text-xs font-semibold text-slate-500 uppercase";
+          sSpan.textContent = status;
+          const cDiv = document.createElement('div');
+          cDiv.className = "text-xl font-bold text-slate-900 mt-1";
+          cDiv.textContent = metrics.count;
+          const aDiv = document.createElement('div');
+          aDiv.className = "text-xs text-slate-400 mt-0.5";
+          aDiv.textContent = `$${metrics.charged.toFixed(2)} billed`;
+          card.appendChild(sSpan);
+          card.appendChild(cDiv);
+          card.appendChild(aDiv);
+          cardsDiv.appendChild(card);
         }
 
         // Table
@@ -510,16 +581,42 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         for (const [st, items] of Object.entries(needsFollowUp)) {
           items.forEach(c => {
             count++;
-            tbody.innerHTML += `
-              <tr>
-                <td class="py-3 px-4 font-mono font-bold">${c.patient_control_number}</td>
-                <td class="py-3 px-4">${c.patient_name || 'N/A'}</td>
-                <td class="py-3 px-4 font-semibold text-indigo-600">$${(c.total_charge || 0).toFixed(2)}</td>
-                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-xs bg-indigo-100 text-indigo-800">${c.status}</span></td>
-                <td class="py-3 px-4 font-mono text-xs">${c.batch_id || 'PENDING'}</td>
-                <td class="py-3 px-4 text-xs text-slate-500">${c.updated_at || 'N/A'}</td>
-              </tr>
-            `;
+            const tr = document.createElement('tr');
+            
+            const tdPcn = document.createElement('td');
+            tdPcn.className = "py-3 px-4 font-mono font-bold";
+            tdPcn.textContent = c.patient_control_number;
+
+            const tdName = document.createElement('td');
+            tdName.className = "py-3 px-4";
+            tdName.textContent = c.patient_name || 'N/A';
+
+            const tdCharge = document.createElement('td');
+            tdCharge.className = "py-3 px-4 font-semibold text-indigo-600";
+            tdCharge.textContent = "$" + (c.total_charge || 0).toFixed(2);
+
+            const tdStatus = document.createElement('td');
+            tdStatus.className = "py-3 px-4";
+            const badge = document.createElement('span');
+            badge.className = "px-2 py-0.5 rounded text-xs bg-indigo-100 text-indigo-800";
+            badge.textContent = c.status;
+            tdStatus.appendChild(badge);
+
+            const tdBatch = document.createElement('td');
+            tdBatch.className = "py-3 px-4 font-mono text-xs";
+            tdBatch.textContent = c.batch_id || 'PENDING';
+
+            const tdDate = document.createElement('td');
+            tdDate.className = "py-3 px-4 text-xs text-slate-500";
+            tdDate.textContent = c.updated_at || 'N/A';
+
+            tr.appendChild(tdPcn);
+            tr.appendChild(tdName);
+            tr.appendChild(tdCharge);
+            tr.appendChild(tdStatus);
+            tr.appendChild(tdBatch);
+            tr.appendChild(tdDate);
+            tbody.appendChild(tr);
           });
         }
         if (count === 0) {

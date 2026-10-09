@@ -12,8 +12,9 @@
 
 import sys
 import os
+import hmac
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, HTTPException, Body, Depends
+from fastapi import FastAPI, HTTPException, Body, Depends, Header
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -80,14 +81,52 @@ def health_check():
 
 @app.get("/portal", response_class=HTMLResponse)
 @app.get("/dashboard", response_class=HTMLResponse)
-def biller_portal():
+def biller_portal(
+    x_api_key: Optional[str] = Header(default=None),
+    api_key: Optional[str] = None
+):
     """Interactive visual portal for medical billers to review encounters,
-    manage the HITL queue, and view the claims ledger."""
+    manage the HITL queue, and view the claims ledger.
+    Requires authentication via X-API-Key header or ?api_key= query parameter."""
+    provided_key = x_api_key or api_key
+    # Check configured keys fail-closed
+    keys = [k.strip() for k in (os.getenv("API_KEYS", "") or os.getenv("API_KEY", "")).split(",") if k.strip()]
+    if not keys:
+        raise HTTPException(
+            status_code=503,
+            detail="API authentication is not configured. Service is fail-closed."
+        )
+    if not provided_key or not any(hmac.compare_digest(provided_key, k) for k in keys):
+        # Return simple login / unauthorized screen prompting for key
+        return HTMLResponse(
+            status_code=401,
+            content="""<!DOCTYPE html>
+<html>
+<head><title>Authentication Required | Medical Biller Portal</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;margin:0;}
+.box{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);max-width:400px;width:100%;}
+input{width:100%;padding:8px 12px;margin:12px 0;border:1px solid #cbd5e1;border-radius:6px;box-sizing:border-box;}
+button{width:100%;padding:10px;background:#4f46e5;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;}
+</style></head>
+<body><div class="box">
+<h2>Biller Portal Sign-In</h2>
+<p style="font-size:0.875rem;color:#64748b;">Please enter your HIPAA Authorized API Key to access the medical billing portal.</p>
+<form onsubmit="location.href='/portal?api_key=' + encodeURIComponent(document.getElementById('k').value); return false;">
+<input id="k" type="password" placeholder="Enter API Key" required autofocus />
+<button type="submit">Access Portal</button>
+</form></div></body></html>"""
+        )
+
     template_path = os.path.join(os.path.dirname(__file__), "templates", "portal.html")
     if not os.path.exists(template_path):
         raise HTTPException(status_code=404, detail="Portal template not found.")
     with open(template_path, "r", encoding="utf-8") as f:
-        return f.read()
+        html = f.read()
+    # If authenticated via query param, inject key into input securely on load
+    if provided_key:
+        html = html.replace('value="" id="apiKeyInput"', f'value="{provided_key}" id="apiKeyInput"')
+    return html
+
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots_txt():
@@ -169,7 +208,13 @@ def process_encounter_endpoint(req: EncounterRequest, actor: str = Depends(requi
     except Exception as e:
         audit_event(actor, "ENCOUNTER_PROCESS", "/api/v1/encounter/process",
                     "ERROR", patient_ref=req.encounter_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        # Prevent leaking raw patient payload from validation error strings
+        err_msg = str(e)
+        if "validation error" in err_msg.lower():
+            clean_msg = "Payload validation error: please verify all required patient and provider fields."
+        else:
+            clean_msg = f"Encounter processing error: {type(e).__name__}"
+        raise HTTPException(status_code=500, detail=clean_msg)
 
 @app.post("/api/v1/eligibility/check")
 def check_eligibility_endpoint(req: EligibilityRequest, actor: str = Depends(require_api_key)):
@@ -185,7 +230,12 @@ def check_eligibility_endpoint(req: EligibilityRequest, actor: str = Depends(req
                     patient_ref=pat.member_id)
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        err_msg = str(e)
+        if "validation error" in err_msg.lower():
+            clean_msg = "Eligibility request validation error: invalid patient or payer format."
+        else:
+            clean_msg = f"Eligibility verification failed: {type(e).__name__}"
+        raise HTTPException(status_code=400, detail=clean_msg)
 
 @app.post("/api/v1/remittance/ingest-835")
 def ingest_remittance_endpoint(req: RemittanceRequest, actor: str = Depends(require_api_key)):
