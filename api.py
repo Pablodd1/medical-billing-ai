@@ -122,9 +122,9 @@ button{width:100%;padding:10px;background:#4f46e5;color:#fff;border:none;border-
         raise HTTPException(status_code=404, detail="Portal template not found.")
     with open(template_path, "r", encoding="utf-8") as f:
         html = f.read()
-    # If authenticated via query param, inject key into input securely on load
+    # If authenticated via query param or header, inject key into input securely on load
     if provided_key:
-        html = html.replace('value="" id="apiKeyInput"', f'value="{provided_key}" id="apiKeyInput"')
+        html = html.replace('id="apiKeyInput" type="password" value=""', f'id="apiKeyInput" type="password" value="{provided_key}"')
     return html
 
 
@@ -265,7 +265,8 @@ def ingest_remittance_endpoint(req: RemittanceRequest, actor: str = Depends(requ
             "appeals_generated": appeals
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        audit_event(actor, "ERA_INGEST", "/api/v1/remittance/ingest-835", "ERROR")
+        raise HTTPException(status_code=500, detail="Failed to process 835 remittance file: parsing or reconciliation error.")
 
 # ---------------- Operational & HITL Review Endpoints ----------------
 
@@ -335,7 +336,7 @@ def approve_and_transmit_endpoint(
     except Exception as e:
         audit_event(actor, "CLAIM_APPROVE_TRANSMIT", "/api/v1/claims/{pcn}/approve-and-transmit",
                     "ERROR", patient_ref=patient_control_number)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Claim approval error: {type(e).__name__}")
 
 @app.post("/api/v1/transmission/poll-acknowledgments")
 def poll_acks(actor: str = Depends(require_api_key)):
@@ -346,7 +347,7 @@ def poll_acks(actor: str = Depends(require_api_key)):
                     "OK", detail={k: v for k, v in summary.items() if k != "unknown_files"})
         return summary
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Clearinghouse communication error: {str(e)}")
 
 @app.get("/api/v1/compliance/reference-data/status")
 def reference_data_status(actor: str = Depends(require_api_key)):

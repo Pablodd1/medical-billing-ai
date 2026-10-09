@@ -282,6 +282,12 @@ class AutonomousMedicalBillingPipeline:
         batch_id = f"BAT_HITL_{patient_control_number}"
         dispatch_res = self.dispatcher.dispatch_batch(x12_837_content, batch_id=batch_id)
 
+        # Register claim fingerprint with scrutinizer to block any subsequent duplicate submissions
+        if "claim_fingerprint_hash" in encounter_dict and encounter_dict["claim_fingerprint_hash"]:
+            self.scrutinizer.submitted_claims_fingerprints.add(encounter_dict["claim_fingerprint_hash"])
+        elif item.get("claim_fingerprint"):
+            self.scrutinizer.submitted_claims_fingerprints.add(item["claim_fingerprint"])
+
         # Update ledger: record claims in batch (moves status to SUBMITTED)
         self.dispatcher.ledger.record_claims_in_batch(batch_id, [{
             "patient_control_number": patient_control_number,

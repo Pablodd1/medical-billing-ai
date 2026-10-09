@@ -128,7 +128,9 @@ class MultimodalDocumentIngestor:
 
     def _parse_ocr_or_image(self, ocr_text: str) -> str:
         cleaned = re.sub(r"[•|~_]+", " ", str(ocr_text))
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        # Collapse multiple horizontal spaces without destroying line breaks
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
         return cleaned
 
     DATE_PATTERNS = [
@@ -270,17 +272,20 @@ class MultimodalDocumentIngestor:
             hpi = text[:300].strip()
 
         # Capture Assessment & Plan together, or separate Assessment / Plan sections
-        ap_match = re.search(r"(?:Assessment and Plan|Assessment & Plan|A&P|Impression and Plan)[:\s]+(.*?)(?=\n\s*(?:Signature|Time|Provider|Dr\.)|$)", text, re.IGNORECASE | re.DOTALL)
+        ap_match = re.search(r"(?:Assessment and Plan|Assessment & Plan|A&P|Impression and Plan)[:\s]+(.*?)(?=\n\s*(?:Signature|Time|Provider|Dr\.|CPT:)|$)", text, re.IGNORECASE | re.DOTALL)
         if ap_match:
             ap = ap_match.group(1).strip()
         else:
-            # Check separate Assessment: ... Plan: ...
-            assessment_match = re.search(r"(?:Assessment|Impression)[:\s]+(.*?)(?=\n\s*(?:Plan|Signature|Time|Provider|Dr\.)|$)", text, re.IGNORECASE | re.DOTALL)
-            plan_match = re.search(r"(?:Plan|Recommendation)[:\s]+(.*?)(?=\n\s*(?:Signature|Time|Provider|Dr\.)|$)", text, re.IGNORECASE | re.DOTALL)
+            # Check separate Assessment: ... and Plan: ...
+            assessment_match = re.search(r"(?:Assessment|Impression)[:\s]+(.*?)(?=\n\s*(?:Plan|Recommendation|Signature|Time|Provider|Dr\.|CPT:)|$)", text, re.IGNORECASE | re.DOTALL)
+            plan_match = re.search(r"(?:Plan|Recommendation)[:\s]+(.*?)(?=\n\s*(?:Signature|Time|Provider|Dr\.|CPT:)|$)", text, re.IGNORECASE | re.DOTALL)
             if assessment_match or plan_match:
-                ass_text = assessment_match.group(1).strip() if assessment_match else ""
-                pln_text = plan_match.group(1).strip() if plan_match else ""
-                ap = f"Assessment: {ass_text}\nPlan: {pln_text}".strip()
+                parts = []
+                if assessment_match:
+                    parts.append(f"Assessment: {assessment_match.group(1).strip()}")
+                if plan_match:
+                    parts.append(f"Plan: {plan_match.group(1).strip()}")
+                ap = "\n".join(parts)
             else:
                 ap = text[-400:].strip() if len(text) > 400 else text
 

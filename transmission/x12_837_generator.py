@@ -183,11 +183,16 @@ class X12_837P_Generator:
                 )
 
         # 2310B Rendering Provider
+        # Derive taxonomy code according to provider credentialing type if not explicitly set
+        prov_type = str(prov.get("type", "")).upper()
+        default_taxonomy = "363L00000X" if "APRN" in prov_type or "NP" in prov_type else "207Q00000X"
+        taxonomy = prov.get("taxonomy_code") or default_taxonomy
+
         body.append(
             f"NM1*82*1*{prov.get('rendering_last_name', 'Provider')}"
             f"*{prov.get('rendering_first_name', 'Clinician')}****XX*{rendering_npi}~"
         )
-        body.append(f"PRV*PE*PXC*{prov.get('taxonomy_code', '207Q00000X')}~")
+        body.append(f"PRV*PE*PXC*{taxonomy}~")
 
         # 2320 / 2330 Secondary COB (Other Subscriber / Other Payer)
         sec_payer = pat.get("secondary_payer")
@@ -195,6 +200,8 @@ class X12_837P_Generator:
         if sec_payer_dict:
             sec_member_id = pat.get("secondary_member_id") or pat.get("member_id")
             body.append(f"SBR*S*18*******{_filing_indicator(sec_payer_dict)}~")
+            # Loop 2320 required OI (Other Insurance) segment: claim filing indicator / benefits assignment
+            body.append("OI***Y***Y~")
             # AMT*D: primary payer paid amount (claim level), when known
             primary_paid = encounter.get("primary_payer_paid_amount")
             if primary_paid is not None:

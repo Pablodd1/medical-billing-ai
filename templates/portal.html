@@ -105,10 +105,20 @@
 
             <!-- Provider Row -->
             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">Provider</span>
+              <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">Provider &amp; Credentialing</span>
               <div class="grid grid-cols-2 gap-2">
                 <input id="provName" type="text" placeholder="Provider Name" value="DR. SARAH ORTEGA" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
                 <input id="provNpi" type="text" placeholder="Rendering NPI" value="1234567893" required class="text-sm px-2.5 py-1.5 border rounded bg-white font-mono">
+              </div>
+              <div class="mt-2 flex flex-col space-y-1 text-xs text-slate-600">
+                <label class="flex items-center space-x-2">
+                  <input id="provProtocol" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500">
+                  <span>Collaborative supervisory protocol on file (F.S. §458.348/§464.012)</span>
+                </label>
+                <label class="flex items-center space-x-2">
+                  <input id="provAutonomous" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500">
+                  <span>FL Autonomous APRN Registered (F.S. §464.0123 - Primary Care only)</span>
+                </label>
               </div>
             </div>
 
@@ -285,6 +295,8 @@
       document.getElementById('patMemberId').value = "MJ99887766";
       document.getElementById('provName').value = "DR. SARAH ORTEGA";
       document.getElementById('provNpi').value = "1234567893";
+      document.getElementById('provProtocol').checked = false; // Default unchecked to demonstrate Tier 2 scrutiny!
+      document.getElementById('provAutonomous').checked = false;
       document.getElementById('clinicalNote').value = 
 `Patient: MARK JOHNSON  DOB: 04/15/1968
 Date of Service: 09/28/2026
@@ -323,8 +335,8 @@ Dr. James Rivera, MD     NPI: 9876543210`;
           name: document.getElementById('provName').value,
           npi: document.getElementById('provNpi').value,
           tax_id: "12-3456789",
-          has_collaborative_protocol: true,
-          fl_autonomous_registered: false
+          has_collaborative_protocol: document.getElementById('provProtocol').checked,
+          fl_autonomous_registered: document.getElementById('provAutonomous').checked
         },
         payer: {
           payer_id: "00901",
@@ -520,7 +532,12 @@ Dr. James Rivera, MD     NPI: 9876543210`;
           body: JSON.stringify({ resolution_notes: notes, resolved_by: "LEAD_BILLER" })
         });
         const data = await resp.json();
-        alert(`Claim ${pcn} Approved & Dispatched to Office Ally! Batch: ${data.batch_id}`);
+        const isSim = (data.clearinghouse_dispatch && data.clearinghouse_dispatch.simulation) || false;
+        if (isSim) {
+          alert(`Claim ${pcn} Approved! (SIMULATION MODE - Not transmitted to live clearinghouse) Batch: ${data.batch_id}`);
+        } else {
+          alert(`Claim ${pcn} Approved & Dispatched to Office Ally SFTP! Batch: ${data.batch_id}`);
+        }
         loadQueue();
         loadQueueBadge();
       } catch (err) {

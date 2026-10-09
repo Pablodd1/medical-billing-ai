@@ -160,11 +160,17 @@ async function auditRoute(client, route) {
         model: process.env.JEV_MODEL || 'jev-latest'
       });
 
+      const isOperational = evalResult.answers.is_operational.noul > 0.5;
+      const severity = evalResult.answers.severity.choice;
+      const shouldAlertRaw = evalResult.answers.should_alert.noul > 0.5;
+      // An endpoint that is non-operational or has high/critical severity must trigger alert
+      const shouldAlert = shouldAlertRaw || !isOperational || ['high', 'critical'].includes(severity);
+
       evaluation = {
-        is_operational: evalResult.answers.is_operational.noul > 0.5,
+        is_operational: isOperational,
         operational_confidence: evalResult.answers.is_operational.noul,
-        severity: evalResult.answers.severity.choice,
-        should_alert: evalResult.answers.should_alert.noul > 0.5,
+        severity: severity,
+        should_alert: shouldAlert,
         alert_confidence: evalResult.answers.should_alert.noul,
         engine: `jev-1 (${evalResult.model})`
       };

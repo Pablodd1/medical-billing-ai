@@ -61,8 +61,14 @@ class ClinicalCodingEngine:
         em_modifiers = []
         if is_virtual:
             em_modifiers.append("95")
-        # Modifier -25 should only be appended if a separately identifiable procedure was actually performed
-        if extracted_procedures:
+        # Check if surgical/minor procedures (CPT 10000-69999) were performed that warrant Modifier -25
+        # (Modifier -25 is ONLY for significant, separately identifiable E/M on the same day as a minor surgical/procedure,
+        # NOT for diagnostic radiology 70000s, pathology/labs 80000s, or medicine diagnostic services)
+        has_surgical_procedure = any(
+            re.match(r"^[1-6][0-9]{4}$", str(proc.get("code", "")))
+            for proc in extracted_procedures
+        )
+        if has_surgical_procedure:
             em_modifiers.append("25")
 
         service_lines.append(CPTServiceLine(
@@ -74,7 +80,7 @@ class ClinicalCodingEngine:
         ))
 
         for proc in extracted_procedures:
-            # Map procedure to first relevant diagnosis pointer or primary pointer 1
+            # Map procedure to primary supporting diagnosis pointer 1
             service_lines.append(CPTServiceLine(
                 code=proc["code"],
                 modifiers=[],
@@ -92,16 +98,44 @@ class ClinicalCodingEngine:
             cpt_codes=service_lines
         )
 
+    # Common non-diagnosis tokens that match letter+2 digits (e.g. B12 vitamin, D3, A1c, etc.)
+    NON_DIAGNOSIS_TOKENS = {"B12", "D03", "A01", "D3", "TID", "BID", "QID", "PRN", "POS", "CPT", "NPI", "APRN", "MD", "DO"}
+
+    # Symptom codes that must be suppressed if a definitive etiology / underlying condition is coded
+    # per ICD-10-CM Official Guidelines Section I.B.5
+    SYMPTOM_SUPPRESSION_MAP = {
+        "M25.561": ["M23.", "M17."],  # Knee pain suppressed by internal derangement (M23) or osteoarthritis (M17)
+        "M25.562": ["M23.", "M17."],
+        "M25.569": ["M23.", "M17."],
+        "R53.83": ["E55.", "E11.", "I10"]  # Fatigue suppressed if endocrine/chronic disease explains it
+    }
+
     def _extract_diagnoses(self, text: str) -> List[DiagnosisCode]:
         diagnoses: List[DiagnosisCode] = []
         seen_codes = set()
         pointer = 1
+        text_lower = text.lower()
+        negation_terms = ["denies", "no history of", "negative for", "without", "ruled out", "no signs of", "r/o", "no evidence of"]
 
         # 1. First priority: Extract explicitly documented ICD-10 codes in note e.g. M23.201, I10, L57.0
-        # Standard ICD-10-CM format: Letter followed by 2 digits, dot, and up to 4 alphanumeric chars
         explicit_codes = re.findall(r"\b([A-TV-Z][0-9]{2}(?:\.[0-9A-Z]{1,4})?)\b", text)
         for code in explicit_codes:
-            # Filter out non-ICD false positives (e.g. CPT numbers, dates, times)
+            code_upper = code.upper()
+            if code_upper in self.NON_DIAGNOSIS_TOKENS:
+                continue
+
+            # Check if this exact code is preceded by negation in the clinical text
+            code_idx = text_lower.find(code.lower())
+            if code_idx != -1:
+                prefix_context = text_lower[max(0, code_idx - 50):code_idx]
+                if any(neg in prefix_context for neg in negation_terms):
+                    continue
+
+                # Also verify it is not preceded by "vitamin" or "vit"
+                if re.search(r"\b(?:vitamin|vit)\s*$", prefix_context.strip()):
+                    continue
+
+            # Standard ICD-10 validation: Category letter + 2 digits, optional dot + alphanumeric
             if re.match(r"^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$", code) and code not in seen_codes:
                 seen_codes.add(code)
                 diagnoses.append(DiagnosisCode(
@@ -112,17 +146,20 @@ class ClinicalCodingEngine:
                 ))
                 pointer += 1
 
-        # 2. Second priority: Keyword ontology matching with basic negation checking
-        text_lower = text.lower()
-        negation_terms = ["denies", "no history of", "negative for", "without", "ruled out", "no signs of"]
-
+        # 2. Second priority: Keyword ontology matching with negation & symptom suppression
         for keyword, (code, desc) in self.DIAGNOSIS_ONTOLOGY.items():
             if keyword in text_lower and code not in seen_codes:
-                # Check for negation in the 40 characters preceding keyword
+                # Check for negation in the 50 characters preceding keyword
                 idx = text_lower.find(keyword)
-                context = text_lower[max(0, idx - 40):idx]
+                context = text_lower[max(0, idx - 50):idx]
                 if any(neg in context for neg in negation_terms):
                     continue  # Negated condition, do not code
+
+                # ICD-10-CM Guideline I.B.5: Do not code symptoms if definitive diagnosis is already documented
+                if code in self.SYMPTOM_SUPPRESSION_MAP:
+                    suppressor_prefixes = self.SYMPTOM_SUPPRESSION_MAP[code]
+                    if any(any(sc.startswith(pref) for pref in suppressor_prefixes) for sc in seen_codes):
+                        continue  # Suppressed by confirmed definitive diagnosis!
 
                 seen_codes.add(code)
                 diagnoses.append(DiagnosisCode(
@@ -145,20 +182,42 @@ class ClinicalCodingEngine:
     def _extract_procedures(self, text: str) -> List[Dict[str, Any]]:
         procedures: List[Dict[str, Any]] = []
         seen_cpts = set()
+        text_lower = text.lower()
+        order_or_referral_terms = ["ordered", "order", "referral", "schedule", "pending", "send out", "sent to", "requisition", "recommended"]
 
         # 1. Extract explicitly documented CPT procedure codes e.g. CPT 73560 or CPT 99214
-        explicit_cpts = re.findall(r"\b(?:CPT|Procedure)[:\s]+([0-9]{5})\b", text, re.IGNORECASE)
-        for cpt in explicit_cpts:
+        # Must verify if the procedure was actually PERFORMED vs merely ordered or referred out!
+        explicit_cpts = re.finditer(r"\b(?:CPT|Procedure)[:\s]+([0-9]{5})\b", text, re.IGNORECASE)
+        for match in explicit_cpts:
+            cpt = match.group(1)
             if cpt.startswith("992"):
                 continue  # E/M code handled separately
+            
+            # Check context before and after CPT for "ordered" / "referral"
+            start_pos = match.start()
+            end_pos = match.end()
+            line_start = text.rfind("\n", 0, start_pos)
+            line_start = 0 if line_start == -1 else line_start
+            line_end = text.find("\n", end_pos)
+            line_end = len(text) if line_end == -1 else line_end
+            line_context = text_lower[line_start:line_end]
+
+            if any(term in line_context for term in order_or_referral_terms):
+                # Ordered test or external referral: Do NOT bill on clinic HCFA claim
+                continue
+
             if cpt not in seen_cpts:
                 seen_cpts.add(cpt)
                 procedures.append({"code": cpt, "charge": 95.00, "description": f"Documented procedure CPT {cpt}"})
 
-        # 2. Keyword ontology procedures
-        text_lower = text.lower()
+        # 2. Keyword ontology procedures (e.g. cryotherapy, joint injection)
         for keyword, (cpt, charge, desc) in self.PROCEDURE_ONTOLOGY.items():
             if keyword in text_lower and cpt not in seen_cpts:
+                idx = text_lower.find(keyword)
+                context = text_lower[max(0, idx - 40):min(len(text_lower), idx + len(keyword) + 40)]
+                if any(term in context for term in order_or_referral_terms):
+                    continue  # Ordered/scheduled for future, not performed today
+
                 seen_cpts.add(cpt)
                 procedures.append({"code": cpt, "charge": charge, "description": desc})
 
