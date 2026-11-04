@@ -24,10 +24,60 @@ class ClinicalCodingEngine:
         "htn": ("I10", "Essential (primary) hypertension"),
         "actinic keratosis": ("L57.0", "Actinic keratosis"),
         "osteoarthritis": ("M17.0", "Bilateral primary osteoarthritis of knee"),
+        "advance oa": ("M19.90", "Unspecified osteoarthritis, unspecified site"),
         "knee pain": ("M25.561", "Pain in right knee"),
         "vitamin d deficiency": ("E55.9", "Vitamin D deficiency, unspecified"),
         "fatigue": ("R53.83", "Other fatigue"),
-        "hyperlipidemia": ("E78.5", "Hyperlipidemia, unspecified")
+        "hyperlipidemia": ("E78.5", "Hyperlipidemia, unspecified"),
+        "hylerlipidemia": ("E78.5", "Hyperlipidemia, unspecified"),
+        "functional decline": ("M62.81", "Muscle weakness (generalized)"),
+        "increased weakness": ("M62.81", "Muscle weakness (generalized)"),
+        "muscle weakness": ("M62.81", "Muscle weakness (generalized)"),
+        "gait instability": ("R26.89", "Other abnormalities of gait and mobility"),
+        "gait difficulty": ("R26.89", "Other abnormalities of gait and mobility"),
+        "unstable gait": ("R26.89", "Other abnormalities of gait and mobility"),
+        "difficulty walking": ("R26.2", "Difficulty in walking, not elsewhere classified"),
+        "gerd": ("K21.9", "Gastro-esophageal reflux disease without esophagitis"),
+        "gastroesophageal reflux": ("K21.9", "Gastro-esophageal reflux disease without esophagitis"),
+        "anemia": ("D64.9", "Anemia, unspecified"),
+        "obesity": ("E66.9", "Obesity, unspecified"),
+        "aki": ("N17.9", "Acute kidney failure, unspecified"),
+        "acute kidney injury": ("N17.9", "Acute kidney failure, unspecified"),
+        "ckd": ("N18.9", "Chronic kidney disease, unspecified"),
+        "chronic kidney disease": ("N18.9", "Chronic kidney disease, unspecified"),
+        "hyponatremia": ("E87.1", "Hypo-osmolality and hyponatremia"),
+        "hypokalemia": ("E87.6", "Hypokalemia"),
+        "hypercalcemia": ("E83.52", "Hypercalcemia"),
+        "leukocytosis": ("D72.829", "Other elevated white blood cell count"),
+        "deconditioning": ("M62.81", "Muscle weakness (generalized)"),
+        "dementia": ("F03.90", "Unspecified dementia, unspecified severity, without behavioral disturbance"),
+        "alzheimer": ("G30.9", "Alzheimer's disease, unspecified"),
+        "parkinson": ("G20", "Parkinson's disease"),
+        "neuropathy": ("G62.9", "Polyneuropathy, unspecified"),
+        "congestive heart failure": ("I50.9", "Heart failure, unspecified"),
+        "chf": ("I50.9", "Heart failure, unspecified"),
+        "coronary artery disease": ("I25.10", "Atherosclerotic heart disease of native coronary artery"),
+        "cad": ("I25.10", "Atherosclerotic heart disease of native coronary artery"),
+        "pvd": ("I73.9", "Peripheral vascular disease, unspecified"),
+        "peripheral vascular disease": ("I73.9", "Peripheral vascular disease, unspecified"),
+        "atrial fibrillation": ("I48.91", "Unspecified atrial fibrillation"),
+        "afib": ("I48.91", "Unspecified atrial fibrillation"),
+        "cellulitis right foot": ("L03.115", "Cellulitis of right lower limb"),
+        "cellulitis left foot": ("L03.116", "Cellulitis of left lower limb"),
+        "cellulitis": ("L03.90", "Cellulitis, unspecified"),
+        "mrsa": ("B95.62", "Methicillin resistant Staphylococcus aureus infection"),
+        "depressive disorder": ("F32.A", "Depression, unspecified"),
+        "depression": ("F32.A", "Depression, unspecified"),
+        "anxiety": ("F41.9", "Anxiety disorder, unspecified"),
+        "insomnia": ("G47.00", "Insomnia, unspecified"),
+        "total hip arthroplasty": ("Z47.1", "Aftercare following joint replacement surgery"),
+        "total knee arthroplasty": ("Z47.1", "Aftercare following joint replacement surgery"),
+        "orif": ("Z47.89", "Encounter for other orthopedic aftercare"),
+        "hypothyroidism": ("E03.9", "Hypothyroidism, unspecified"),
+        "copd": ("J44.9", "Chronic obstructive pulmonary disease, unspecified"),
+        "bph": ("N40.0", "Benign prostatic hyperplasia without lower urinary tract symptoms"),
+        "dysphagia": ("R13.10", "Dysphagia, unspecified"),
+        "constipation": ("K59.00", "Constipation, unspecified")
     }
 
     PROCEDURE_ONTOLOGY = {
@@ -40,9 +90,9 @@ class ClinicalCodingEngine:
     }
 
     def generate_coding(self, note: ClinicalNoteParsed, is_telehealth: bool = False) -> BillingDetails:
-        full_text = f"{note.chief_complaint} {note.history_of_present_illness} {note.assessment_and_plan}"
+        full_text = f"{note.chief_complaint} {note.history_of_present_illness} {note.assessment_and_plan} {note.raw_text}"
 
-        extracted_diagnoses = self._extract_diagnoses(full_text)
+        extracted_diagnoses = self._extract_diagnoses(full_text)[:12]
         extracted_procedures = self._extract_procedures(full_text)
         em_code, em_charge = self._score_em_level(note, len(extracted_diagnoses))
 
@@ -71,12 +121,13 @@ class ClinicalCodingEngine:
         if has_surgical_procedure:
             em_modifiers.append("25")
 
+        em_pointers = list(range(1, min(len(extracted_diagnoses), 4) + 1)) if extracted_diagnoses else [1]
         service_lines.append(CPTServiceLine(
             code=em_code,
             modifiers=em_modifiers,
             charge=em_charge,
             units=1,
-            dx_pointers=[1, 2] if len(extracted_diagnoses) >= 2 else [1]
+            dx_pointers=em_pointers
         ))
 
         for proc in extracted_procedures:
@@ -227,6 +278,10 @@ class ClinicalCodingEngine:
                 # Reject if preceded by vitamin
                 if re.search(r"\b(?:vitamin|vit)\s*$", prefix, re.IGNORECASE):
                     continue
+                # Reject if part of a lab ratio e.g. H/H 10.8/31.6
+                suffix = text[m.end():m.end() + 4]
+                if re.search(r"(?:H/|Hb|Hgb)\s*$", prefix, re.IGNORECASE) or suffix.startswith("/"):
+                    continue
                 # Reject if negated in the current clause
                 if self.NEGATION_REGEX.search(prefix):
                     continue
@@ -331,19 +386,47 @@ class ClinicalCodingEngine:
     def _score_em_level(self, note: ClinicalNoteParsed, num_diagnoses: int) -> Tuple[str, float]:
         # 1. Check if clinician explicitly documented an E/M code
         all_text = f"{note.chief_complaint} {note.history_of_present_illness} {note.assessment_and_plan}"
-        explicit_em = re.search(r"\b(992[01][2-5])\b", all_text)
+        explicit_em = re.search(r"\b(992[01][2-5]|9930[4-9]|99310)\b", all_text)
         if explicit_em:
             code = explicit_em.group(1)
             rates = {
                 "99212": 75.00, "99213": 115.00, "99214": 175.00, "99215": 230.00,
-                "99202": 95.00, "99203": 140.00, "99204": 210.00, "99205": 275.00
+                "99202": 95.00, "99203": 140.00, "99204": 210.00, "99205": 275.00,
+                "99304": 125.00, "99305": 165.00, "99306": 215.00,
+                "99307": 85.00, "99308": 115.00, "99309": 160.00, "99310": 225.00
             }
             return code, rates.get(code, 175.00)
+
+        # 2. Check Place of Service: Nursing Facility / SNF (POS 31/32)
+        pos = note.place_of_service_detected or "11"
+        is_nursing_facility = pos in ["31", "32"]
 
         text = note.assessment_and_plan.lower()
         has_rx_management = any(w in text for w in ["prescription", "prescribed", "refilled", "started on", "medication", "ibuprofen", "tid", "bid", "mg"])
         time_spent = note.time_spent_minutes
 
+        if is_nursing_facility:
+            # Subsequent Nursing Facility Care (CPT 99307 - 99310), CPT 2023+ time thresholds:
+            # 99307 >= 10 min, 99308 >= 20, 99309 >= 30, 99310 >= 45 (total time on the date of service).
+            if time_spent >= 45:
+                return "99310", 225.00
+            if time_spent >= 30:
+                return "99309", 160.00
+            if time_spent >= 20:
+                return "99308", 115.00
+            if time_spent >= 10:
+                return "99307", 85.00
+            # No documented time: diagnosis count is only a conservative suggestion and is
+            # capped at 99309. High MDM (99310) must be supported by documented time or MDM
+            # and is never inferred from diagnosis count; a coder must confirm (EM_LEVEL_HEURISTIC).
+            if num_diagnoses >= 2:
+                return "99309", 160.00
+            elif num_diagnoses >= 1:
+                return "99308", 115.00
+            else:
+                return "99307", 85.00
+
+        # Office or Outpatient Care (CPT 99212 - 99215)
         if time_spent >= 40:
             return "99215", 230.00
         elif (num_diagnoses >= 2 and has_rx_management) or (time_spent >= 30):

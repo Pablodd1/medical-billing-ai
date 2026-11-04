@@ -267,3 +267,53 @@ class X12_837P_Generator:
 
         tail = [f"GE*1*{gs06}~", f"IEA*1*{isa13:09d}~"]
         return "\n".join(head + body + tail)
+
+    def generate_batch_837p(self, encounters_or_edi_payloads: List[Any]) -> str:
+        """
+        Consolidates multiple clean claims (either Encounter dicts or pre-built single-claim
+        837P strings) into a single HIPAA 5010 X12 837P batch file (1 ISA/GS interchange
+        wrapping N ST..SE transaction sets) ready for 1-click Office Ally Web Upload or SFTP.
+        """
+        if not encounters_or_edi_payloads:
+            return ""
+
+        now = datetime.now()
+        isa_date = now.strftime("%y%m%d")
+        gs_date = now.strftime("%Y%m%d")
+        time_str = now.strftime("%H%M")
+
+        isa13 = self.control_store.next("ISA13")
+        gs06 = self.control_store.next("GS06")
+
+        sub15 = self.config.claims_submitter_id.ljust(15)
+        recv15 = self.config.receiver_id.ljust(15)
+
+        head = [
+            f"ISA*00*          *00*          *ZZ*{sub15}"
+            f"*{self.config.receiver_qualifier}*{recv15}"
+            f"*{isa_date}*{time_str}*^*00501*{isa13:09d}*0*{self.usage_indicator}*:~",
+            f"GS*HC*{self.config.claims_submitter_id}*{self.config.receiver_id}"
+            f"*{gs_date}*{time_str}*{gs06}*X*005010X222A1~"
+        ]
+
+        all_st_se_blocks: List[str] = []
+        tx_count = 0
+
+        for item in encounters_or_edi_payloads:
+            raw_837 = item if isinstance(item, str) else self.generate_837p(item)
+            # Extract ST..SE lines from the single-claim 837P string
+            lines = [ln.strip() for ln in raw_837.splitlines() if ln.strip()]
+            st_se_lines = [
+                ln for ln in lines
+                if not (ln.startswith("ISA*") or ln.startswith("GS*") or ln.startswith("GE*") or ln.startswith("IEA*"))
+            ]
+            if st_se_lines:
+                all_st_se_blocks.extend(st_se_lines)
+                tx_count += 1
+
+        tail = [
+            f"GE*{tx_count}*{gs06}~",
+            f"IEA*1*{isa13:09d}~"
+        ]
+        return "\n".join(head + all_st_se_blocks + tail)
+

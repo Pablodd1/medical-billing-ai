@@ -57,3 +57,18 @@ Thumbs.db
 *.sqlite3-wal
 *.sqlite3-shm
 *.jsonl
+
+# Local clinical batch data & PHI protection (HIPAA compliance)
+data/
+exports/
+*.pdf
+*.ocr.txt
+*.837
+*.eml
+sample_ocr_text.txt
+test_sample.pdf
+
+# Batch outputs containing PHI
+september_batch_summary.json
+september_batch_report.md
+september_manifest.json

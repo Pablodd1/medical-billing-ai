@@ -5,7 +5,7 @@
 
 import sys
 import os
-from typing import Dict, Any, Union
+from typing import Dict, Any, Optional, Union
 
 # Ensure current directory is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -128,7 +128,8 @@ class AutonomousMedicalBillingPipeline:
         payer_data: Dict[str, Any],
         encounter_id: str = "ENC-001",
         date_of_service: str = "2026-09-25",
-        is_telehealth: bool = False
+        is_telehealth: bool = False,
+        place_of_service_override: Optional[str] = None
     ) -> Dict[str, Any]:
         pipeline_log = []
 
@@ -180,6 +181,9 @@ class AutonomousMedicalBillingPipeline:
 
         # STAGE 3: Clinical NLP Coding & MDM
         billing = self.coding_engine.generate_coding(parsed_note, is_telehealth=is_telehealth)
+        if place_of_service_override:
+            # Biller-verified POS (e.g. 31 Part A SNF stay vs 32 nursing facility) wins over text detection
+            billing.place_of_service = place_of_service_override
         pipeline_log.append(f"[Stage 3] Coded {len(billing.diagnosis_codes)} ICD-10 dx and {len(billing.cpt_codes)} CPT lines (POS={billing.place_of_service}). Total: ${billing.total_charge}")
 
         encounter_payload = EncounterPayload(
@@ -226,6 +230,9 @@ class AutonomousMedicalBillingPipeline:
                 "status": "FLAGGED_FOR_HUMAN_REVIEW",
                 "patient_control_number": encounter_id,
                 "confidence_score": scrutiny_res.confidence_score,
+                "total_billed": billing.total_charge,
+                "total_charge": billing.total_charge,
+                "billing_details": billing,
                 "scrutiny_issues": scrutiny_res.issues,
                 "hcfa_missing_fields": hcfa_res["missing_fields"],
                 "physician_queries": hcfa_res["physician_queries"],
@@ -262,10 +269,13 @@ class AutonomousMedicalBillingPipeline:
             "date_of_service": effective_dos,
             "place_of_service": billing.place_of_service,
             "total_billed": billing.total_charge,
+            "total_charge": billing.total_charge,
+            "billing_details": billing,
             "claim_fingerprint": scrutiny_res.claim_fingerprint,
             "timely_filing": scrutiny_res.timely_filing,
             "has_secondary_cob": bool(patient.secondary_payer),
             "x12_837_snippet": x12_837_content.split("\n")[:12],
+            "edi_837p_payload": x12_837_content,
             "clearinghouse_dispatch": dispatch_res,
             "pipeline_log": pipeline_log
         }
