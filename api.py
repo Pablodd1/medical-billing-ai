@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from models.encounter import DocumentSourceType
 from pipeline import AutonomousMedicalBillingPipeline
+from compliance.code_search import search_clinical_codes
 from security.auth import require_api_key
 from security.audit_log import audit_event
 
@@ -354,6 +355,20 @@ def reference_data_status(actor: str = Depends(require_api_key)):
     """Shows which CMS/FCSO reference datasets are loaded and their provenance."""
     from compliance.reference_data import ReferenceDataLibrary
     return ReferenceDataLibrary().status_summary()
+
+
+
+@app.get("/api/v1/knowledge/search")
+def search_knowledge_codes_endpoint(
+    q: str,
+    limit: int = 15,
+    actor: str = Depends(require_api_key),
+):
+    """Fast hybrid Meilisearch + local ICD-10-CM & Florida RCM code lookup (non-PHI)."""
+    res = search_clinical_codes(query=q, limit=limit)
+    audit_event(actor, "CODE_SEARCH", "/api/v1/knowledge/search", "OK", detail={"engine": res.get("engine"), "count": res.get("count")})
+    return res
+
 
 if __name__ == "__main__":
     import uvicorn
