@@ -1,0 +1,651 @@
+{
+  "metadata": {
+    "version": "2026.1.0",
+    "effective_year": 2026,
+    "jurisdiction": "Florida (CMS Jurisdiction N - First Coast Service Options 09102 & FL AHCA Medicaid 77027)",
+    "zero_hallucination_policy": "All answers and validations must derive strictly from this verified file, simple_icd_10_cm (FY2026 NCHS), and CMS/FCSO CSV tables. Never invent CPT/ICD-10 codes, RVUs, fee-schedule dollar amounts, or payer policies."
+  },
+  "cpt_codes": {
+    "99202": {
+      "category": "Office or Other Outpatient E/M (New Patient)",
+      "mdm": "Straightforward",
+      "min_time_minutes": 15,
+      "max_time_minutes": 29,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99203": {
+      "category": "Office or Other Outpatient E/M (New Patient)",
+      "mdm": "Low",
+      "min_time_minutes": 30,
+      "max_time_minutes": 44,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99204": {
+      "category": "Office or Other Outpatient E/M (New Patient)",
+      "mdm": "Moderate",
+      "min_time_minutes": 45,
+      "max_time_minutes": 59,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99205": {
+      "category": "Office or Other Outpatient E/M (New Patient)",
+      "mdm": "High",
+      "min_time_minutes": 60,
+      "max_time_minutes": 74,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99211": {
+      "category": "Office or Other Outpatient E/M (Established Patient - Clinical Staff)",
+      "mdm": "N/A (Minimal / Nurse Visit under Physician Supervision)",
+      "min_time_minutes": 0,
+      "allowed_pos": ["11", "19", "22"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 E/M Guidelines; CMS IOM Pub. 100-04, Ch. 12, § 30.6.7"
+    },
+    "99212": {
+      "category": "Office or Other Outpatient E/M (Established Patient)",
+      "mdm": "Straightforward",
+      "min_time_minutes": 10,
+      "max_time_minutes": 19,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99213": {
+      "category": "Office or Other Outpatient E/M (Established Patient)",
+      "mdm": "Low",
+      "min_time_minutes": 20,
+      "max_time_minutes": 29,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99214": {
+      "category": "Office or Other Outpatient E/M (Established Patient)",
+      "mdm": "Moderate",
+      "min_time_minutes": 30,
+      "max_time_minutes": 39,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99215": {
+      "category": "Office or Other Outpatient E/M (Established Patient)",
+      "mdm": "High",
+      "min_time_minutes": 40,
+      "max_time_minutes": 54,
+      "allowed_pos": ["02", "10", "11", "19", "20", "22"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Evaluation and Management Guidelines — Office or Other Outpatient Services (99202-99215)"
+    },
+    "99304": {
+      "category": "Initial Nursing Facility Care (Per Admission, Including Initial Specialist Consultations)",
+      "mdm": "Straightforward or Low",
+      "min_time_minutes": 25,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "notes": "Used once per admission per physician/QHP. Under CMS IOM Pub. 100-04, Ch. 12, § 30.6.13 (MLN MM6740), consulting specialists report 99304-99306 WITHOUT Modifier -AI; only the Principal/Attending Physician of Record appends Modifier -AI.",
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13 (MLN MM6740)"
+    },
+    "99305": {
+      "category": "Initial Nursing Facility Care (Per Admission, Including Initial Specialist Consultations)",
+      "mdm": "Moderate",
+      "min_time_minutes": 35,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "notes": "Used once per admission per physician/QHP for Moderate MDM or >=35 minutes total time. Consulting specialists omit Modifier -AI.",
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13 (MLN MM6740)"
+    },
+    "99306": {
+      "category": "Initial Nursing Facility Care (Per Admission, Including Initial Specialist Consultations)",
+      "mdm": "High",
+      "min_time_minutes": 45,
+      "ama_2026_editorial_time_minutes": 50,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "notes": "High MDM or >=45 minutes CMS/2023 baseline (50 minutes in AMA CPT 2024-2026 print descriptor). Never infer 99306 from diagnosis count alone without documented High MDM or total time.",
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13 (MLN MM6740)"
+    },
+    "99307": {
+      "category": "Subsequent Nursing Facility Care (Per Day)",
+      "mdm": "Straightforward",
+      "min_time_minutes": 10,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13"
+    },
+    "99308": {
+      "category": "Subsequent Nursing Facility Care (Per Day)",
+      "mdm": "Low",
+      "min_time_minutes": 20,
+      "ama_descriptor_time_minutes": 15,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13"
+    },
+    "99309": {
+      "category": "Subsequent Nursing Facility Care (Per Day)",
+      "mdm": "Moderate",
+      "min_time_minutes": 30,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13"
+    },
+    "99310": {
+      "category": "Subsequent Nursing Facility Care (Per Day)",
+      "mdm": "High",
+      "min_time_minutes": 45,
+      "allowed_pos": ["31", "32", "02"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Nursing Facility Services; CMS IOM Pub. 100-04, Ch. 12, § 30.6.13"
+    },
+    "99341": {
+      "category": "Home or Residence Services (New Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "Straightforward",
+      "min_time_minutes": 15,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99342": {
+      "category": "Home or Residence Services (New Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "Low",
+      "min_time_minutes": 30,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99344": {
+      "category": "Home or Residence Services (New Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "Moderate",
+      "min_time_minutes": 60,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99345": {
+      "category": "Home or Residence Services (New Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "High",
+      "min_time_minutes": 75,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99347": {
+      "category": "Home or Residence Services (Established Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "Straightforward",
+      "min_time_minutes": 20,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99348": {
+      "category": "Home or Residence Services (Established Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "Low",
+      "min_time_minutes": 30,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99349": {
+      "category": "Home or Residence Services (Established Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "Moderate",
+      "min_time_minutes": 40,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "99350": {
+      "category": "Home or Residence Services (Established Patient - Includes Private Home POS 12 & ALF POS 13)",
+      "mdm": "High",
+      "min_time_minutes": 60,
+      "allowed_pos": ["12", "13", "14", "16", "02", "10"],
+      "g2211_eligible": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Home or Residence Services (99341-99350); CMS CY2026 MPFS Final Rule"
+    },
+    "G2211": {
+      "category": "HCPCS Visit Complexity Add-On Code (Longitudinal Care)",
+      "mdm": "Add-on to Office/Outpatient (99202-99215) or Home/Residence (99341-99350) only",
+      "min_time_minutes": 0,
+      "allowed_pos": ["02", "10", "11", "12", "13", "14", "16", "19", "20", "22"],
+      "g2211_eligible": false,
+      "medicare_payable": true,
+      "notes": "NEVER valid with SNF/NF codes (99304-99310), Inpatient (99221-99239), or ED (99281-99285). Not payable when base E/M has Modifier -25 unless paired with CMS-exempt Part B preventive service (AWV G0438/G0439, G0101, or vaccine administration).",
+      "citation": "CMS CY2024/CY2025/CY2026 Medicare Physician Fee Schedule Final Rule; MLN MM13473"
+    },
+    "17000": {
+      "category": "Integumentary — Destruction of Premalignant Lesions (First Lesion)",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "fcso_lcd": "L33947",
+      "citation": "AMA CPT 2026 Surgery / Integumentary; FCSO FL MAC LCD L33947"
+    },
+    "17003": {
+      "category": "Integumentary — Destruction of Premalignant Lesions (2nd through 14th Lesions, Each)",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "fcso_lcd": "L33947",
+      "citation": "AMA CPT 2026 Surgery / Integumentary; FCSO FL MAC LCD L33947"
+    },
+    "11042": {
+      "category": "Integumentary — Debridement, Subcutaneous Tissue (First 20 sq cm or less)",
+      "allowed_pos": ["11", "12", "13", "21", "22", "31", "32"],
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Surgery / Wound Debridement"
+    },
+    "11102": {
+      "category": "Integumentary — Tangential Biopsy of Skin (Single Lesion)",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Surgery / Skin Biopsy"
+    },
+    "11104": {
+      "category": "Integumentary — Punch Biopsy of Skin (Single Lesion)",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Surgery / Skin Biopsy"
+    },
+    "20552": {
+      "category": "Musculoskeletal — Trigger Point Injection(s), 1 or 2 Muscle(s)",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "fcso_lcd": "L33622",
+      "citation": "AMA CPT 2026 Musculoskeletal; FCSO FL MAC LCD L33622"
+    },
+    "20553": {
+      "category": "Musculoskeletal — Trigger Point Injection(s), 3 or More Muscles",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "fcso_lcd": "L33622",
+      "citation": "AMA CPT 2026 Musculoskeletal; FCSO FL MAC LCD L33622"
+    },
+    "20605": {
+      "category": "Musculoskeletal — Arthrocentesis/Aspiration/Injection, Intermediate Joint or Bursa",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "fcso_lcd": "L36805",
+      "citation": "AMA CPT 2026 Musculoskeletal; FCSO FL MAC LCD L36805"
+    },
+    "20610": {
+      "category": "Musculoskeletal — Arthrocentesis/Aspiration/Injection, Major Joint or Bursa (without ultrasound)",
+      "allowed_pos": ["11", "12", "13", "22", "31", "32"],
+      "medicare_payable": true,
+      "fcso_lcd": "L36805",
+      "citation": "AMA CPT 2026 Musculoskeletal; FCSO FL MAC LCD L36805"
+    },
+    "82306": {
+      "category": "Pathology & Laboratory — Vitamin D; 25 hydroxy",
+      "allowed_pos": ["11", "19", "22", "32", "81"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "fcso_lcd": "L36063",
+      "citation": "AMA CPT 2026 Pathology & Lab; FCSO FL MAC LCD L36063"
+    },
+    "97110": {
+      "category": "Physical Medicine & Rehabilitation — Therapeutic Exercises (Each 15 min)",
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "notes": "Excluded from separate Part B billing during a Medicare Part A SNF stay (POS 31) under SNF Consolidated Billing (Social Security Act § 1888(e); 42 CFR § 411.15(p)).",
+      "citation": "AMA CPT 2026 Medicine / PM&R; 42 CFR § 411.15(p) SNF Consolidated Billing"
+    },
+    "97140": {
+      "category": "Physical Medicine & Rehabilitation — Manual Therapy Techniques (Each 15 min)",
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "notes": "Bundled into SNF Part A PPS rate when resident is in a Medicare Part A stay (POS 31) per 42 CFR § 411.15(p).",
+      "citation": "AMA CPT 2026 Medicine / PM&R; 42 CFR § 411.15(p) SNF Consolidated Billing"
+    },
+    "97597": {
+      "category": "Active Wound Care Management — Debridement of Open Wound (First 20 sq cm or less)",
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "citation": "AMA CPT 2026 Medicine / Active Wound Care"
+    },
+    "J1100": {
+      "category": "HCPCS Drug — Injection, Dexamethasone Sodium Phosphate, 1 mg",
+      "requires_ndc": true,
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "citation": "CMS HCPCS Level II 2026; X12 5010A1 Loop 2410 Drug Identification (LIN*N4 / CTP)"
+    },
+    "J3301": {
+      "category": "HCPCS Drug — Injection, Triamcinolone Acetonide, Not Otherwise Specified, 10 mg",
+      "requires_ndc": true,
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "citation": "CMS HCPCS Level II 2026; X12 5010A1 Loop 2410 Drug Identification (LIN*N4 / CTP)"
+    },
+    "J3420": {
+      "category": "HCPCS Drug — Injection, Vitamin B-12 Cyanocobalamin, Up to 1,000 mcg",
+      "requires_ndc": true,
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "citation": "CMS HCPCS Level II 2026; X12 5010A1 Loop 2410 Drug Identification (LIN*N4 / CTP)"
+    },
+    "J1010": {
+      "category": "HCPCS Drug — Injection, Methylprednisolone Acetate, 1 mg",
+      "requires_ndc": true,
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "citation": "CMS HCPCS Level II 2026; X12 5010A1 Loop 2410 Drug Identification (LIN*N4 / CTP)"
+    },
+    "J1885": {
+      "category": "HCPCS Drug — Injection, Ketorolac Tromethamine, Per 15 mg",
+      "requires_ndc": true,
+      "allowed_pos": ["11", "12", "13", "22", "32"],
+      "snf_part_a_consolidated_bundled": true,
+      "medicare_payable": true,
+      "citation": "CMS HCPCS Level II 2026; X12 5010A1 Loop 2410 Drug Identification (LIN*N4 / CTP)"
+    }
+  },
+  "deleted_or_nonpayable_cpt": {
+    "99201": "Deleted by AMA CPT effective January 1, 2021; report 99202-99205 based on MDM or total time.",
+    "99343": "Deleted by AMA CPT effective January 1, 2023; report 99341, 99342, 99344, or 99345.",
+    "99324": "Domiciliary/ALF codes 99324-99337 were deleted effective January 1, 2023; report Home or Residence Services 99341-99350 with POS 13 (ALF).",
+    "99242": "Outpatient consultation codes (99242-99245) are NOT payable by Medicare Part B (CR 6740 / MLN MM6740); bill 99202-99215 or 99341-99350.",
+    "99252": "Inpatient/SNF consultation codes (99252-99255) are NOT payable by Medicare Part B (CMS IOM Pub. 100-04, Ch. 12, § 30.6.13 / MLN MM6740); for SNF consults, bill Initial Nursing Facility Care 99304-99306 without Modifier -AI."
+  },
+  "modifiers": {
+    "25": {
+      "name": "Significant, Separately Identifiable E/M Service by Same Physician/QHP on Same Day of Procedure",
+      "rule": "Append ONLY to the E/M code (never the procedure code) when a distinct E/M above the pre-/post-work of a same-day minor surgical procedure (0- or 10-day global, e.g., 17000, 20610) is documented. Do NOT append for diagnostic radiology (70000s) or clinical labs (80000s). Blocks G2211 payment unless paired with an exempt Part B preventive service.",
+      "citation": "AMA CPT 2026 Appendix A; CMS NCCI Policy Manual Ch. 1 § E"
+    },
+    "59": {
+      "name": "Distinct Procedural Service",
+      "rule": "Modifier of last resort to bypass NCCI PTP Column 1/Column 2 bundling (when Modifier Indicator = 1). CMS instructs billers to prefer specific X{EPSU} subset modifiers whenever applicable.",
+      "citation": "CMS MLN Matters SE1418; CMS NCCI Policy Manual Ch. 1 § E"
+    },
+    "XE": {
+      "name": "Separate Encounter",
+      "rule": "NCCI specific subset of -59: service occurred during a separate, distinct patient encounter on the same date of service.",
+      "citation": "CMS MLN Matters MM8863 / SE1418"
+    },
+    "XS": {
+      "name": "Separate Structure",
+      "rule": "NCCI specific subset of -59: service performed on a separate organ or anatomical structure.",
+      "citation": "CMS MLN Matters MM8863 / SE1418"
+    },
+    "XP": {
+      "name": "Separate Practitioner",
+      "rule": "NCCI specific subset of -59: service performed by a different practitioner.",
+      "citation": "CMS MLN Matters MM8863 / SE1418"
+    },
+    "XU": {
+      "name": "Unusual Non-Overlapping Service",
+      "rule": "NCCI specific subset of -59: service does not overlap usual components of the main procedure.",
+      "citation": "CMS MLN Matters MM8863 / SE1418"
+    },
+    "24": {
+      "name": "Unrelated E/M Service by Same Physician/QHP During a Postoperative Global Period",
+      "rule": "Appended to an E/M code during a 10- or 90-day global surgical period when the visit is completely unrelated to the original surgery.",
+      "citation": "AMA CPT 2026 Appendix A; CMS IOM Pub. 100-04, Ch. 12, § 40.2"
+    },
+    "57": {
+      "name": "Decision for Surgery",
+      "rule": "Appended to an E/M code when the visit results in the initial decision to perform a major surgical procedure (90-day global) on the day before or day of surgery. Never use on 0- or 10-day minor procedures (use -25).",
+      "citation": "AMA CPT 2026 Appendix A; CMS IOM Pub. 100-04, Ch. 12, § 40.2"
+    },
+    "AI": {
+      "name": "Principal Physician of Record",
+      "rule": "Appended strictly to Initial Inpatient or Initial Nursing Facility Care (99304-99306) by the admitting/attending physician overseeing the overall stay. Consulting specialists (e.g., PM&R consultants) MUST NOT append Modifier -AI.",
+      "citation": "CMS IOM Pub. 100-04, Ch. 12, § 30.6.13; MLN Matters MM6740"
+    },
+    "FS": {
+      "name": "Split (or Shared) Evaluation and Management Visit",
+      "rule": "Appended to facility E/M visits jointly performed by a physician and NPP in the same group; billed under the practitioner who performed >50% of total time or the substantive portion of MDM.",
+      "citation": "CMS CY2024/CY2026 MPFS Final Rule; 42 CFR § 415.140"
+    },
+    "GV": {
+      "name": "Attending Physician Not Employed or Paid Under Arrangement by Patient's Hospice Provider",
+      "rule": "Required on Medicare Part B professional claims when an independent attending physician treats a hospice-enrolled beneficiary for a condition related to the terminal illness.",
+      "citation": "CMS IOM Pub. 100-04, Ch. 11, § 40.1.1"
+    },
+    "GW": {
+      "name": "Service Not Related to the Hospice Patient's Terminal Condition",
+      "rule": "Required on Medicare Part B professional claims when any physician/QHP treats a hospice-enrolled beneficiary for a condition unrelated to the terminal prognosis.",
+      "citation": "CMS IOM Pub. 100-04, Ch. 11, § 40.1.2"
+    },
+    "QW": {
+      "name": "CLIA Waived Test",
+      "rule": "Appended to FDA/CMS CLIA-waived clinical laboratory CPT codes performed by a practice holding a Certificate of Waiver.",
+      "citation": "CMS IOM Pub. 100-04, Ch. 16, § 70.8; 42 CFR Part 493"
+    },
+    "95": {
+      "name": "Synchronous Telemedicine Service Rendered Via Real-Time Interactive Audio and Video",
+      "rule": "Appended to eligible CPT E/M services delivered via real-time interactive audio-video telecommunications; pair with POS 02 (facility/non-home) or POS 10 (patient's home).",
+      "citation": "AMA CPT 2026 Appendix P; CMS Telehealth Services Guidance 2025/2026"
+    },
+    "93": {
+      "name": "Synchronous Telemedicine Service Rendered Via Telephone or Other Real-Time Interactive Audio-Only",
+      "rule": "Appended to CMS/AMA eligible audio-only telehealth services when video is unavailable or patient cannot/declines video use.",
+      "citation": "AMA CPT 2026 Appendix T; CMS CY2025/CY2026 MPFS Telehealth Audio-Only Policy"
+    },
+    "JW": {
+      "name": "Drug Amount Discarded / Not Administered to Any Patient",
+      "rule": "Reported on a separate claim line for discarded Part B drug units from a single-dose container.",
+      "citation": "CMS IOM Pub. 100-04, Ch. 17, § 40; Social Security Act § 1847A(h)"
+    },
+    "JZ": {
+      "name": "Zero Drug Amount Discarded / Not Administered to Any Patient",
+      "rule": "Mandatory on single-dose container Medicare Part B drug claim lines when NO drug amount was discarded.",
+      "citation": "CMS CY2023-CY2026 MPFS Single-Dose Container Policy; MLN MM13056"
+    }
+  },
+  "pos_codes": {
+    "02": {
+      "name": "Telehealth Provided Other than in Patient's Home",
+      "rate_type": "Facility MPFS Rate",
+      "rule": "Use when patient is located in a hospital, clinic, or Skilled Nursing Facility (SNF) during a telehealth visit. Reimbursed at the Medicare facility rate. Loop 2310C required if required by payer.",
+      "citation": "CMS Place of Service Code Set; CMS IOM Pub. 100-04, Ch. 12, § 190"
+    },
+    "10": {
+      "name": "Telehealth Provided in Patient's Home",
+      "rate_type": "Non-Facility MPFS Rate",
+      "rule": "Use strictly when the patient is located in their private residence during a telehealth visit. Reimbursed at the higher Medicare non-facility rate.",
+      "citation": "CMS Place of Service Code Set; MLN MM12427 / CY2024-CY2026 MPFS"
+    },
+    "11": {
+      "name": "Office",
+      "rate_type": "Non-Facility MPFS Rate",
+      "rule": "Physician/group practice office setting. Compatible with 99202-99215; NEVER compatible with Nursing Facility codes 99304-99310 or Home codes 99341-99350.",
+      "citation": "CMS Place of Service Code Set"
+    },
+    "12": {
+      "name": "Home",
+      "rate_type": "Non-Facility MPFS Rate",
+      "rule": "Patient's private residence. Compatible with Home or Residence E/M 99341-99350.",
+      "citation": "CMS Place of Service Code Set; AMA CPT 2026 Home or Residence Services"
+    },
+    "13": {
+      "name": "Assisted Living Facility (ALF)",
+      "rate_type": "Non-Facility MPFS Rate",
+      "rule": "Assisted Living Facility. Since CPT 2023 deleted 99324-99337, bill Home or Residence E/M 99341-99350 with POS 13 and emit Loop 2310C (Box 32) Service Facility.",
+      "citation": "AMA CPT 2023-2026 E/M Restructuring; CMS Place of Service Code Set"
+    },
+    "21": {
+      "name": "Inpatient Hospital",
+      "rate_type": "Facility MPFS Rate",
+      "rule": "Acute inpatient hospital. Incident-To (42 CFR § 410.26) and G2211 are prohibited. Requires Box 18 Admission Date (DTP*435) and Box 32 Facility (Loop 2310C).",
+      "citation": "CMS Place of Service Code Set; CMS IOM Pub. 100-04, Ch. 26"
+    },
+    "31": {
+      "name": "Skilled Nursing Facility (SNF — Medicare Part A Covered Stay)",
+      "rate_type": "Facility MPFS Rate",
+      "rule": "Report POS 31 ONLY when the beneficiary is in a covered Medicare Part A SNF stay (days 1-100). Physician/NPP E/M (99304-99310) is excluded from SNF Consolidated Billing and billed to Part B MAC (09102), whereas PT/OT/SLP therapy (97110, 97140), routine labs, and Part B drugs administered in-house are bundled into the SNF's Part A per-diem under Social Security Act § 1888(e) / 42 CFR § 411.15(p). Requires Loop 2310C (Box 32) and DTP*435 Admission Date (Box 18).",
+      "citation": "Social Security Act § 1888(e); 42 CFR § 411.15(p); CMS IOM Pub. 100-04, Ch. 6 & Ch. 12 § 30.6.13"
+    },
+    "32": {
+      "name": "Nursing Facility (NF — Non-Part A / Long-Term Care / Exhausted Part A)",
+      "rate_type": "Facility MPFS Rate",
+      "rule": "Report POS 32 when the resident is in a nursing facility WITHOUT an active Medicare Part A SNF stay (long-term custodial stay, Medicaid LTC, or exhausted Part A benefits). Compatible with 99304-99310; Part B SNF Consolidated Billing Part A stay bundle does not apply (except therapy still requires consolidated rules where applicable). Requires Loop 2310C (Box 32).",
+      "citation": "CMS Place of Service Code Set; CMS IOM Pub. 100-04, Ch. 6 & Ch. 12 § 30.6.13"
+    }
+  },
+  "medicare_fl_fcso": {
+    "mac_name": "First Coast Service Options (FCSO)",
+    "jurisdiction": "Jurisdiction N (Florida, Puerto Rico, U.S. Virgin Islands)",
+    "electronic_payer_id": "09102",
+    "timely_filing_days": 365,
+    "timely_filing_citation": "42 CFR § 424.44; CMS IOM Pub. 100-04, Ch. 1, § 70 (1 calendar year from Date of Service)",
+    "mbi_format": {
+      "length": 11,
+      "excluded_letters": ["S", "L", "O", "I", "B", "Z"],
+      "positions": {
+        "1": "Numeric 1-9 (never 0)",
+        "2": "Alphabetic A-Z excluding S, L, O, I, B, Z",
+        "3": "Alphanumeric 0-9 or A-Z excluding S, L, O, I, B, Z",
+        "4": "Numeric 0-9",
+        "5": "Alphabetic A-Z excluding S, L, O, I, B, Z",
+        "6": "Alphanumeric 0-9 or A-Z excluding S, L, O, I, B, Z",
+        "7": "Numeric 0-9",
+        "8": "Alphabetic A-Z excluding S, L, O, I, B, Z",
+        "9": "Alphabetic A-Z excluding S, L, O, I, B, Z",
+        "10": "Numeric 0-9",
+        "11": "Numeric 0-9"
+      },
+      "edi_rule": "Omit all hyphens and spaces in X12 837P Loop 2010BA NM109 (Qualifier MI) and SBR09='MB'.",
+      "citation": "CMS Medicare Beneficiary Identifier (MBI) Format Specifications; Medicare Access and CHIP Reauthorization Act (MACRA) of 2015"
+    },
+    "aprn_pa_rules": {
+      "mpfs_rate_percent": 85,
+      "md_do_rate_percent": 100,
+      "incident_to_facility_allowed": false,
+      "fl_autonomous_aprn_statute": "Florida Statutes § 464.0123 restricts autonomous APRN practice (without a physician supervisory protocol) strictly to Primary Care (Family Medicine, General Internal Medicine, General Pediatrics). Specialty APRNs (e.g., PM&R, Dermatology, Cardiology) MUST maintain an active Florida Board of Nursing collaborative protocol.",
+      "citation": "Social Security Act § 1833(a)(1)(O) (85% NPP rate); 42 CFR § 410.26 (Incident-To prohibited in POS 21/31/32); Florida Statutes § 464.0123"
+    }
+  },
+  "icd10_cm_fy2026_guidelines": {
+    "specificity_rule": "Section I.B.2 & Section I.B.18: Diagnosis codes must be reported to the highest number of characters available (billable leaf node). Category or subcategory headers (e.g., M54.5, E11, S72.14) are invalid under HIPAA 5010.",
+    "signs_and_symptoms_rule": "Section I.B.4 & Section I.B.5: Signs and symptoms (e.g., knee pain M25.561, low back pain M54.50, fatigue R53.83) that are routine/integral to a confirmed definitive diagnosis on the same claim MUST NOT be coded separately.",
+    "outpatient_uncertain_and_lab_rule": "Section III.B & Section IV.H / IV.K: Do NOT code 'rule out', 'suspected', 'probable', or 'questionable' diagnoses on outpatient/physician claims; code the documented symptoms/condition to highest certainty. Never assign a diagnosis (such as Anemia D64.9 or Hyponatremia E87.1) solely from raw abnormal laboratory values without explicit physician clinical interpretation.",
+    "citation": "ICD-10-CM Official Guidelines for Coding and Reporting FY2026 (CMS & CDC/NCHS, effective October 1, 2025 - September 30, 2026)"
+  },
+  "fda_ndc_rules": {
+    "format": "11-digit numeric 5-4-2 without hyphens or spaces",
+    "conversions": {
+      "4-4-2": "Prepend leading '0' to 1st segment (Labeler): XXXX-XXXX-XX -> 0XXXXXXXXXX",
+      "5-3-2": "Prepend leading '0' to 2nd segment (Product): XXXXX-XXX-XX -> XXXXX0XXXXX",
+      "5-4-1": "Prepend leading '0' to 3rd segment (Package): XXXXX-XXXX-X -> XXXXXXXXX0X"
+    },
+    "ambiguous_10_digit_rule": "An unhyphenated 10-digit string cannot be deterministically padded without FDA directory segment boundaries and must be rejected until hyphenated or verified.",
+    "valid_x12_units": {
+      "F2": "International Unit",
+      "GR": "Gram",
+      "ME": "Milligram",
+      "ML": "Milliliter",
+      "UN": "Unit"
+    },
+    "edi_mapping": "X12 837P Loop 2410: LIN**N4*<11-digit-NDC>~ followed by CTP****<quantity>*<unit>~",
+    "citation": "21 CFR Part 207 (FDA National Drug Code Directory); ASC X12N 005010X222A1 Loop 2410; CMS IOM Pub. 100-04, Ch. 26"
+  },
+  "florida_medicaid_ahca": {
+    "agency": "Florida Agency for Health Care Administration (AHCA)",
+    "electronic_payer_id": "77027",
+    "member_id_rule": "10-digit numeric Florida Medicaid Recipient ID (FMMIS) for FFS and Medicare-Medicaid crossover routing; verify active SMMC MMA/LTC plan enrollment via 270/271.",
+    "timely_filing": {
+      "original_ffs_days": 365,
+      "crossover_days_from_medicare_eomb": 180,
+      "mma_managed_care_typical_days": 180,
+      "citation": "Florida Administrative Code Rule 59G-1.052 (Florida Medicaid General Policies — Timely Filing)"
+    },
+    "crossover_cob_rule": "Submit primary claim to FCSO Medicare FL (09102). If COBA automatic crossover does not forward to AHCA (77027) or the beneficiary's SMMC MMA/LTC plan, submit secondary 837P with Loop 2320 (SBR*S*18*******MC~, AMT*D, OI) and Loop 2430 (SVD, CAS, DTP*573) matching the Medicare 835 ERA.",
+    "qmb_federal_prohibition": {
+      "rule": "Qualified Medicare Beneficiaries (QMBs) are federally protected from ALL Medicare Part A and Part B cost-sharing (deductibles, coinsurance, copayments). Providers — including non-Medicaid-enrolled Medicare providers — are strictly barred from balance-billing QMB patients even when Florida Medicaid pays $0.00 or denies the crossover claim.",
+      "citation": "Social Security Act § 1902(n)(3)(B) (42 U.S.C. § 1396a(n)(3)(B)); CMS MLN SE1128"
+    },
+    "mma_and_ma_plans_south_florida": [
+      "Simply Healthcare Plans",
+      "Sunshine Health / Ambetter",
+      "Molina Healthcare of Florida",
+      "Humana Medical Plan",
+      "UnitedHealthcare Community Plan / Optum ISNP",
+      "CarePlus Health Plans",
+      "Devoted Health",
+      "Wellcare / Staywell",
+      "AvMed",
+      "Leon Health",
+      "Medica HealthCare Plans",
+      "Preferred Care Partners",
+      "Doctors HealthCare Plans",
+      "Alignment Health Plan",
+      "Clover Health",
+      "Oscar Health"
+    ]
+  },
+  "office_ally_clearinghouse": {
+    "receiver_name": "OFFICE ALLY",
+    "receiver_id": "330897513",
+    "isa07_qualifier": "30",
+    "isa08_receiver_id": "330897513",
+    "gs03_receiver_id": "330897513",
+    "verified_payer_ids": {
+      "09102": "First Coast Service Options — Medicare Part B Florida (Jurisdiction N)",
+      "77027": "Florida Medicaid (AHCA / FMMIS)",
+      "BCBSF": "Florida Blue (BCBS of Florida; alt 00590)",
+      "00590": "Florida Blue (BCBS of Florida)",
+      "60054": "Aetna",
+      "87726": "UnitedHealthcare",
+      "61101": "Humana",
+      "62308": "Cigna",
+      "SIMPLY": "Simply Healthcare Plans (alt SIMPLY-LTC)",
+      "68069": "Sunshine Health / Ambetter",
+      "14163": "Wellcare",
+      "MLNA-FL": "Molina Healthcare of Florida",
+      "00324": "CarePlus Health Plans",
+      "DEVOT": "Devoted Health",
+      "59274": "AvMed",
+      "65088": "Preferred Care Partners (Medicare Advantage FL)",
+      "A3565": "Leon Health",
+      "94265": "Medica HealthCare Plans",
+      "59065": "Community Care Plan (CCP)",
+      "99727": "Tricare East (alt 12807)"
+    },
+    "channels": {
+      "web_portal": "https://sc.officeally.com (Service Center -> Upload Claims -> Professional 837P -> Online Claim Fix visual CMS-1500 queue)",
+      "sftp": "ftp10.officeally.com:22 (/inbound for 837P uploads; /outbound for 999, 277CA, and 835 ERA downloads)",
+      "realtime_270_271_soap": "https://wsd.officeally.com/TransactionService/rtx.svc (CAQH CORE Phase II SOAP)"
+    },
+    "lifecycle": "837P Upload -> 999 Implementation Ack (X12 5010 syntax) -> 277CA Claim Ack (Clearinghouse/Payer front-end scrub; Loop 2010AA requires 9-digit ZIP+4) -> 835 Electronic Remittance Advice (CLP/SVC/CAS adjudication)",
+    "citation": "Office Ally 5010 X12 837P Companion Guide (005010X222A1); CAQH CORE Operating Rules"
+  }
+}

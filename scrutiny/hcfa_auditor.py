@@ -73,6 +73,13 @@ class HCFA1500ExtractorAndAuditor:
         if payer.get("requires_referral", False) and not referring_provider.get("npi"):
             missing_fields.append({"box": "17b", "field": "Referring Provider NPI", "severity": "HIGH", "fix": "Payer requires PCP referral NPI for specialist visit."})
 
+        # --- BOX 18: Hospitalization / SNF Admission Dates Related to Current Services ---
+        hcfa_boxes["box_18_admission_date"] = (
+            encounter.get("admission_date")
+            or billing.get("admission_date")
+            or note.get("registration_date_detected")
+        )
+
         # --- BOX 21: Diagnoses (ICD-10-CM Pointers A-L) ---
         diagnoses = billing.get("diagnosis_codes", [])
         hcfa_boxes["box_21_diagnosis_codes"] = [d.get("code") if isinstance(d, dict) else d.code for d in diagnoses]
@@ -85,12 +92,12 @@ class HCFA1500ExtractorAndAuditor:
         if billing.get("requires_prior_auth", False) and not prior_auth:
             missing_fields.append({"box": "23", "field": "Prior Authorization Number", "severity": "FATAL", "fix": "Procedure requires Prior Authorization. Claim will be denied immediately under CARC 197."})
 
-        # --- BOX 24: Service Lines ---
+        # --- BOX 24: Service Lines (including Box 24A-G Shaded N4 FDA NDC when applicable) ---
         cpt_codes = billing.get("cpt_codes", [])
         hcfa_boxes["box_24_service_lines"] = []
         for line in cpt_codes:
             line_dict = line if isinstance(line, dict) else line.model_dump()
-            hcfa_boxes["box_24_service_lines"].append({
+            entry = {
                 "24A_dates": encounter.get("date_of_service"),
                 "24B_pos": billing.get("place_of_service", "11"),
                 "24D_cpt": line_dict.get("code"),
@@ -98,8 +105,11 @@ class HCFA1500ExtractorAndAuditor:
                 "24E_dx_pointers": line_dict.get("dx_pointers", [1]),
                 "24F_charge": line_dict.get("charge", 0.0),
                 "24G_units": line_dict.get("units", 1),
-                "24J_rendering_npi": provider.get("npi")
-            })
+                "24J_rendering_npi": provider.get("rendering_npi_type_1") or provider.get("npi"),
+            }
+            if line_dict.get("ndc"):
+                entry["24_shaded_ndc_n4"] = f"N4{line_dict.get('ndc')} {line_dict.get('ndc_unit', 'UN')}{line_dict.get('ndc_quantity', '')}".strip()
+            hcfa_boxes["box_24_service_lines"].append(entry)
 
         # --- BOX 25: Federal Tax ID ---
         tax_id = provider.get("tax_id")
@@ -111,13 +121,25 @@ class HCFA1500ExtractorAndAuditor:
         hcfa_boxes["box_28_total_charge"] = billing.get("total_charge", 0.0)
         hcfa_boxes["box_29_amount_paid"] = billing.get("patient_copay_collected", 0.0)
 
+        # --- BOX 32: Service Facility Location Information ---
+        service_facility = encounter.get("service_facility") or billing.get("service_facility") or {}
+        hcfa_boxes["box_32_service_facility"] = {
+            "name": service_facility.get("name") or billing.get("facility_name"),
+            "address": service_facility.get("address"),
+            "city_state_zip": (
+                f"{service_facility.get('city')}, {service_facility.get('state')} {service_facility.get('zip')}"
+                if service_facility.get("city") else None
+            ),
+            "32a_npi": service_facility.get("npi"),
+        }
+
         # --- BOX 33, 33a: Billing Provider Info, Phone, & NPI ---
         hcfa_boxes["box_33_billing_provider"] = {
             "name": provider.get("organization_name"),
-            "phone": provider.get("phone", "8005551212"),
+            "phone": provider.get("phone", ""),
             "address": provider.get("address"),
             "city_state_zip": f"{provider.get('city')}, {provider.get('state')} {provider.get('zip')}",
-            "33a_npi": provider.get("npi"),
+            "33a_npi": provider.get("billing_npi_type_2") or provider.get("npi"),
             "33b_taxonomy": provider.get("taxonomy_code")
         }
 

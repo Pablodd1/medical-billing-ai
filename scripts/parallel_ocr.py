@@ -19,7 +19,7 @@ def _worker_ocr(pdf_path: str, txt_path: str):
     doc = fitz.open(pdf_path)
     ocr_pages = []
     for pno in range(len(doc)):
-        pix = doc[pno].get_pixmap(dpi=100)
+        pix = doc[pno].get_pixmap(dpi=160)
         img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
         if pix.n == 4:
             img = img[:, :, :3]
@@ -74,7 +74,8 @@ def run_parallel_ocr(data_dir: str = "data/september_2026", max_workers: int = 6
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir", type=str, default="data/september_2026")
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
-    run_parallel_ocr(max_workers=args.workers, limit=args.limit)
+    run_parallel_ocr(data_dir=args.data_dir, max_workers=args.workers, limit=args.limit)

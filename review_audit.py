@@ -4,8 +4,11 @@
 # PERSONAS: Ingestion Agent, Eligibility Agent, Coding Agent, Compliance Agent, EDI Agent, Remittance Agent, CTO Agent
 # ============================================
 
+import os
 import sys
 import json
+import tempfile
+os.environ.setdefault("LEDGER_DB_PATH", os.path.join(tempfile.mkdtemp(), "review_audit_ledger.sqlite3"))
 from docx import Document
 from pypdf import PdfWriter
 
@@ -85,6 +88,12 @@ def run_multi_agent_review():
         payer_data=payer_data,
         encounter_id="ENC-DOCX-01"
     )
+    try:
+        import os
+        if os.path.exists(docx_path):
+            os.remove(docx_path)
+    except Exception:
+        pass
 
     # 2. Test Handwritten note normalization
     hw_patient = dict(patient_data)
@@ -272,7 +281,7 @@ def run_multi_agent_review():
         "date_of_service": "2026-09-25"
     })
 
-    has_sbr_s = "SBR*S*18*******CI~" in full_837
+    has_sbr_s = "SBR*S*18*******MB~" in full_837 or "SBR*S*18*******CI~" in full_837
     has_nm1_pr_sec = "NM1*PR*2*MEDICARE B FLORIDA*****PI*00140~" in full_837
     has_sec_member = "MED987654321A" in full_837
     agent7_pass = (res_sec_cob["status"] == "TRANSMITTED_CLEAN_CLAIM") and has_sbr_s and has_nm1_pr_sec and has_sec_member

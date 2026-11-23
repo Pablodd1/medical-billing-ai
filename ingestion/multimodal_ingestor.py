@@ -227,7 +227,7 @@ class MultimodalDocumentIngestor:
             results["dob"] = self._normalize_date_str(dob_match.group(1))
 
         # 2. Date of Service (DOS)
-        dos_match = re.search(r"(?:Date of Service|DOS|Service Date|Effective\s*Date|EffectiveDate|Encounter Date|Visit Date|Date of Visit)[:\s]+([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{1,2},?\s*\d{4})", text, re.IGNORECASE)
+        dos_match = re.search(r"(?:Date of Service|DOS|Service Date|Effective\s*Date|EffectiveDate|ctive\s*Date|Encounter Date|Visit Date|Date of Visit)[:\s]+([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{1,2},?\s*\d{4})", text, re.IGNORECASE)
         if dos_match:
             results["dos"] = self._normalize_date_str(dos_match.group(1))
         else:
@@ -299,6 +299,11 @@ class MultimodalDocumentIngestor:
             "member_id": None,
             "medicaid_id": None,
             "secondary_payer": None,
+            "secondary_member_id": None,
+            "mma_plan": None,
+            "is_qmb": False,
+            "part_a_only": False,
+            "managed_medicare": False,
             "address": None,
             "city": None,
             "state": None,
@@ -317,25 +322,64 @@ class MultimodalDocumentIngestor:
         # Restrict name search to before CONTACTS section to never match emergency contacts
         pre_contacts_text = re.split(r"\bCONTACTS\b", text, maxsplit=1)[0]
 
+        def _fix_trailing_ocr_initial(first_val: str) -> str:
+            """Repairs OCR digit '1' misread from trailing middle initial 'I' (e.g. 'CARLA1.' -> 'CARLA I')."""
+            cleaned = re.sub(r"\b([A-Za-z]{3,})\s*1\.?$", r"\1 I", first_val.strip())
+            return re.sub(r"\s+", " ", cleaned.replace(".", "")).strip().upper()
+
         # 1. Patient Name
-        # Priority A: Page 2 Progress Note "Resident Name : Warren, Julia H.(5319)"
+        # Extract Page 1 face-sheet candidate ("Last, First") inside RESIDENT INFORMATION if present
+        p1_res_block_m = re.search(
+            r"RESIDENT\s*INFORMATION([\s\S]{0,600}?)(?:Previous\s*address|Prev[li1]ous\s*address|PAYER\s*INFORMATION)",
+            pre_contacts_text, re.IGNORECASE
+        )
+        p1_name_pair = None
+        if p1_res_block_m:
+            for ln in p1_res_block_m.group(1).splitlines():
+                ln_s = ln.strip()
+                nm = re.match(r"^([A-Za-z][A-Za-z \.\-]{1,28}),\s*([A-Za-z][A-Za-z0-9 \.\-]{1,28})$", ln_s)
+                if nm and not re.search(r"\b(?:miramar|miami|davie|florida|suites|admission|resident|preferred)\b", ln_s, re.IGNORECASE):
+                    cand_first = _fix_trailing_ocr_initial(nm.group(2))
+                    if re.fullmatch(r"[A-Z][A-Z \-]*", cand_first):
+                        p1_name_pair = (
+                            re.sub(r"\s+", " ", nm.group(1).replace(".", "")).strip().upper(),
+                            cand_first,
+                        )
+                        break
+
+        # Priority A: Page 2 Progress Note "Resident Name : Warren, Julia H.(5319)" or "ISSERMAN,CARLA1(5355)"
         res_name_m = re.search(
-            r"Resident\s*Name\s*:\s*([A-Za-z][A-Za-z \.\-]+,\s*[A-Za-z][A-Za-z \.\-]+?)\s*(?:\(|（|\n|$)",
+            r"Resident\s*N[ae]me\s*[:：]\s*([A-Za-z][A-Za-z \.\-]+,\s*[A-Za-z][A-Za-z0-9 \.\-]+?)\s*(?:\(|（|\n|$)",
             text, re.IGNORECASE
         )
         if res_name_m:
             raw_n = res_name_m.group(1).strip()
             pts = [p.strip() for p in raw_n.split(",", 1)]
             if len(pts) == 2 and pts[0] and pts[1]:
-                last_clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", pts[0]).upper()
-                first_clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", pts[1]).upper()
+                last_clean = re.sub(r"([a-z])([A-Z])", r"\1 \2", pts[0]).replace(".", "").strip().upper()
+                first_raw = re.sub(r"([a-z])([A-Z])", r"\1 \2", pts[1])
+                first_clean = _fix_trailing_ocr_initial(first_raw)
+                # Strip any stray trailing digits that were part of MRN if parenthesis was OCR-dropped
+                first_clean = re.sub(r"\s*\d+$", "", first_clean).strip()
+                if p1_name_pair and p1_name_pair[0] == last_clean:
+                    if " " not in first_clean and len(first_clean) > 9 and first_clean.startswith(p1_name_pair[1].split()[0]):
+                        first_clean = p1_name_pair[1]
+                    elif first_clean != p1_name_pair[1] and first_clean.replace("I", "L") == p1_name_pair[1].replace("I", "L"):
+                        first_clean = p1_name_pair[1]
+                    elif " " not in first_clean and p1_name_pair[1].startswith(first_clean + " "):
+                        first_clean = p1_name_pair[1]
                 info["last_name"] = last_clean
                 info["first_name"] = first_clean
                 info["patient_name"] = f"{info['last_name']}, {info['first_name']}"
 
+        # Priority A2: Page 1 RESIDENT INFORMATION name when Page 2 header was margin-clipped
+        if not info.get("patient_name") and p1_name_pair:
+            info["last_name"], info["first_name"] = p1_name_pair
+            info["patient_name"] = f"{p1_name_pair[0]}, {p1_name_pair[1]}"
+
         # Priority B: Progress note "Patient's name: Margaret Aldorasi, 77 year old lady"
         if not info.get("patient_name"):
-            prog_name_m = re.search(r"Patient'?s?\s*name[:\s]+([A-Za-z\s]+?)(?:,|admitted|\n|$)", text, re.IGNORECASE)
+            prog_name_m = re.search(r"(?:Patient'?s?\s*name|tient'?s?\s*name)[:\s]+([A-Za-z\s]+?)(?:,|admitted|\n|$)", text, re.IGNORECASE)
             if prog_name_m and len(prog_name_m.group(1).strip()) > 3:
                 raw_n = prog_name_m.group(1).strip()
                 pts = raw_n.split()
@@ -373,41 +417,208 @@ class MultimodalDocumentIngestor:
             info["gender"] = sex_m.group(1).upper()
         else:
             # Face-sheet OCR lists labels first, then values: take the first lone M/F
-            # within 15 lines after a standalone "Sex" label. None when not found.
+            # within 15 lines after a standalone "Sex" (or OCR-inverted "xes") label,
+            # or within 6 lines after "Gender:" on Page 2 progress notes.
             lines = [ln.strip() for ln in pre_contacts_text.splitlines()]
             for i, ln in enumerate(lines):
-                if ln.lower() == "sex":
+                if ln.lower() in ("sex", "xes"):
                     for nxt in lines[i + 1:i + 16]:
                         if re.fullmatch(r"[MF]", nxt):
                             info["gender"] = nxt
                             break
-                    break
+                    if info["gender"]:
+                        break
+            if not info["gender"]:
+                all_lines = [ln.strip() for ln in text.splitlines()]
+                for i, ln in enumerate(all_lines):
+                    if ln.lower().rstrip(":") == "gender":
+                        for nxt in all_lines[i + 1:i + 7]:
+                            if re.fullmatch(r"[MF]", nxt):
+                                info["gender"] = nxt
+                                break
+                        if info["gender"]:
+                            break
 
-        # 4. Member ID / Medicare Beneficiary ID (MBI) & Secondary Medicaid ID
-        cms_mbis = re.findall(r"\b([1-9][A-Z][0-9A-Z]{2}[A-Z][0-9A-Z][0-9][A-Z]{2}[0-9]{2})\b", text)
-        if cms_mbis:
-            info["member_id"] = cms_mbis[0]
+        # 4. Member ID / Medicare Beneficiary ID (MBI), FL Medicaid 10-Digit ID, QMB, Part A-Only & Payer Flags
+        from compliance.claim_gate import canonical_payer, valid_mbi
+
+        upper_text = text.upper()
+        # Extract standalone 11-char candidates plus concatenated 'MEDICARE#...' tokens, then filter strictly via valid_mbi()
+        # so OCR-corrupted Pos-1 letters (e.g. BXC3F49DT93, BDJ6DF6XM55, SA78JM8VE39) never shadow a valid CMS MBI.
+        mbi_candidates = (
+            re.findall(r"(?<![0-9A-Z])([1-9][0-9A-Z]{10})(?![0-9A-Z])", upper_text)
+            + re.findall(r"MED[IL1O]CAR[EO]\s*#?\s*([1-9][0-9A-Z]{10})(?![0-9A-Z])", upper_text)
+        )
+        valid_mbis = [m for m in mbi_candidates if valid_mbi(m)]
+        if valid_mbis:
+            info["member_id"] = valid_mbis[0]
         else:
             mbi_m = re.search(r"(?:Medicare Beneficiary ID|Medicare#|Medicare #|Medicare BemeficiaryID)[:\s]*([0-9A-Z]{10,12})", text, re.IGNORECASE)
             if mbi_m and not re.search(r"(?:PAYER|OTHER|SECONDARY|INSURANCE| SOCIAL)", mbi_m.group(1), re.IGNORECASE):
-                info["member_id"] = mbi_m.group(1).strip()
+                info["member_id"] = mbi_m.group(1).strip().upper()
             else:
                 pol_m = re.search(r"(?:Policy Number|Policy#|Primary Insurance Policy#)[:\s]*([0-9A-Z]{8,14})", text, re.IGNORECASE)
                 if pol_m and not re.search(r"(?:PAYER|OTHER|SECONDARY|INSURANCE)", pol_m.group(1), re.IGNORECASE):
-                    info["member_id"] = pol_m.group(1).strip()
+                    info["member_id"] = pol_m.group(1).strip().upper()
 
-        medicaid_m = re.search(r"(?:Medicaid\s*#|Modicaid\s*#|Medicald\s*#)[:\s\n]*([0-9]{9,11})\b", text, re.IGNORECASE)
+        # Restrict insurance/payer inspection to face-sheet blocks BEFORE CARE PROVIDERS (excludes NPIs & emergency contacts)
+        pre_care_text = re.split(r"\bCARE\s*PROVIDERS\b", pre_contacts_text, maxsplit=1)[0]
+        # Strip blank Glades West face-sheet form prompt ("United Healthcare Nursing Home Plan - Optum")
+        clean_pre_care = re.sub(
+            r"Un[il1]ted\s*Health\s*care\s*Nursing\s*Home\s*Plan[\s\-]*(?:\n\s*)?(?:Optum|Qotum|Ootum)?",
+            " ",
+            pre_care_text,
+            flags=re.IGNORECASE,
+        )
+        other_parts = re.split(r"\bOTHER\s*INFORMATION\b", clean_pre_care, maxsplit=1, flags=re.IGNORECASE)
+        pre_other_block = other_parts[0]
+        other_info_block = other_parts[1] if len(other_parts) > 1 else ""
+
+        # Slice Insurance Header block starting at first Medicare/Medicaid/Insurance/PAYER INFORMATION label
+        # (excludes Admission Location hospital names like Memorial/Mercy above the insurance section, and excludes Part D Carrier below OTHER INFORMATION)
+        ins_start_m = re.search(
+            r"(?:Med[il1]car[eo]\s*(?:Benef|Bene|\(HIC\))|Mod[il1]ca[il1]d|Med[il1]ca[il1]d|Med[il1]cad|PAYER\s*INFORMATION)",
+            pre_other_block,
+            re.IGNORECASE,
+        )
+        ins_header_block = pre_other_block[ins_start_m.start():] if ins_start_m else pre_other_block
+
+        # 4a. Florida 10-Digit Medicaid ID (FMMIS)
+        medicaid_m = re.search(
+            r"(?:Med[il1]ca[il1]d|Mod[il1]ca[il1]d|Med[il1]cad)\s*#[:\s\n]*([0-9]{9,11})\b",
+            clean_pre_care,
+            re.IGNORECASE,
+        )
         if medicaid_m:
             info["medicaid_id"] = medicaid_m.group(1).strip()
+        elif ins_start_m:
+            # Columnar face-sheet layout lists labels first, then values on standalone lines inside ins_header_block
+            for ln in ins_header_block.splitlines():
+                ln_s = ln.strip()
+                if re.fullmatch(r"\d{10}", ln_s) and ln_s != "0000000000":
+                    info["medicaid_id"] = ln_s
+                    break
 
-        sec_payer_m = re.search(r"(?:Second\s*Payer|Secondary\s*Insurance\s*Name|Insurance\s*Carrier)[:\s\n]*([A-Za-z0-9 &\-]+)", text, re.IGNORECASE)
-        if sec_payer_m:
-            # Only recognised payer names are kept; OCR noise becomes None.
-            from compliance.claim_gate import canonical_payer
-            info["secondary_payer"] = canonical_payer(sec_payer_m.group(1))
+        # 4b. QMB / MCRA Co-Pay Medicaid, Part A-Only, Managed Medicare B / Part C vs Traditional Medicare B
+        if re.search(r"(?:MCRA\s*Co[\-\s]*Pay\s*Med[il1]ca[il1]d|QMB\s*El[il1g]*ble[:\s]*(?:Yes|Y)\b)", clean_pre_care, re.IGNORECASE):
+            info["is_qmb"] = True
 
-        # 5. Admission Date
-        adm_m = re.search(r"Admission\s*Date[\s\S]{0,100}?\b([0-9]{2}/[0-9]{2}/202[0-9])\b", text, re.IGNORECASE)
+        if re.search(r"Med[il1]car[eo]\s*Cover[aeo]g[eo][\s\S]{0,60}?\bPart\s*A\s*only\b", clean_pre_care, re.IGNORECASE):
+            info["part_a_only"] = True
+
+        has_traditional_med_b = bool(re.search(r"Trad[il1]t[il1]onal\s*Med[il1]car[eo]\s*B", clean_pre_care, re.IGNORECASE))
+        if re.search(
+            r"(?:Managed\s*Med[il1]car[eo]\s*B|Med[il1]car[eo]\s*Advantage\s*Plan|Med[il1]car[eo]\s*Cover[aeo]g[eo][\s\S]{0,50}?\bPart\s*C\b)",
+            clean_pre_care,
+            re.IGNORECASE,
+        ):
+            info["managed_medicare"] = True
+
+        # 4c. Payer / Medicare Advantage / MMA / Secondary Supplement Detection
+        detected_plan: Optional[str] = None
+        # Check Insurance Header zone first (contains Insurance Name, Insurance Name #1, Insurance Carrer, MMA Plan — NO Part D Carrier!)
+        if ins_start_m:
+            detected_plan = canonical_payer(ins_header_block)
+
+        # Check OTHER INFORMATION authorization/prior-plan span: e.g. 'From 9/22 to 9/30 PreferredCare / Member ID 941911549'
+        if not detected_plan and other_info_block:
+            span_plan_m = re.search(
+                r"\bFrom\s*\d{1,2}/\d{1,2}\s*to\s*\d{1,2}/\d{1,2}[\s/]*([A-Za-z][A-Za-z ]{2,30})",
+                other_info_block,
+                re.IGNORECASE,
+            )
+            if span_plan_m:
+                detected_plan = canonical_payer(span_plan_m.group(1))
+                sp_id_m = re.search(
+                    r"\bFrom\s*\d{1,2}/\d{1,2}\s*to\s*\d{1,2}/\d{1,2}[\s\S]{0,180}?\b[Il1][dD]\s*[:#]?\s*([A-Z]?\d{8,11})\b",
+                    other_info_block,
+                    re.IGNORECASE,
+                )
+                if sp_id_m and not info["secondary_member_id"]:
+                    info["secondary_member_id"] = sp_id_m.group(1).strip()
+
+        # Check explicit SECONDARY PAYER block inside OTHER INFORMATION (e.g. 'Tricare / Member ID 00714606805', 'AARP / Member ID 027283858', 'Cigna / Member Id U3862054701')
+        sec_block_m = re.search(
+            r"SECONDARY\s*PAYER[\s\S]{0,140}?\b([A-Za-z][A-Za-z ]{1,24}?)\s*/\s*Member\s*[Il1][dD]\s*[:#]?\s*([A-Za-z0-9]+)",
+            other_info_block,
+            re.IGNORECASE,
+        )
+        if sec_block_m:
+            raw_sec_name = sec_block_m.group(1).strip()
+            sec_mem_id = sec_block_m.group(2).strip()
+            info["secondary_member_id"] = sec_mem_id
+            low_sec = raw_sec_name.lower()
+            if "tricare" in low_sec:
+                detected_plan = detected_plan or "TRICARE"
+            elif "aarp" in low_sec:
+                detected_plan = detected_plan or "AARP SUPPLEMENTAL"
+            else:
+                detected_plan = detected_plan or canonical_payer(raw_sec_name)
+
+        # Fallback explicit single-line label match (e.g. synthetic test strings without full face-sheet sections)
+        if not detected_plan and not ins_start_m:
+            sec_payer_m = re.search(
+                r"(?:Second\s*Payer|Secondary\s*Insurance\s*Name|Insurance\s*Carr?[il1]?er|Insurance\s*Name(?:\s*#1)?)[:\s\n]*([A-Za-z0-9 &\-]+)",
+                clean_pre_care,
+                re.IGNORECASE,
+            )
+            if sec_payer_m:
+                detected_plan = canonical_payer(sec_payer_m.group(1))
+
+        # Capture secondary / commercial policy number from Insurance Header when present (e.g. H62078688, 977586643, U3862054701),
+        # skipping authorization numbers ('Auth#', 'A334403432', 'A331933505') and Part D PDP contract numbers ('H74807757' when no plan matched).
+        if not info["secondary_member_id"] and ins_start_m and detected_plan:
+            cand_sec_ids = []
+            for ln in ins_header_block.splitlines():
+                ln_s = ln.strip()
+                if (
+                    re.fullmatch(r"(?:[A-Z]\d{8,11}|\d{9})", ln_s)
+                    and ln_s != info.get("member_id")
+                    and ln_s != info.get("medicaid_id")
+                    and not re.match(r"^A33\d{7}$", ln_s)
+                ):
+                    cand_sec_ids.append(ln_s)
+            if cand_sec_ids:
+                # Prefer numeric 9-digit or non-auth policy IDs over A-prefixed strings
+                numeric_first = [c for c in cand_sec_ids if c[0].isdigit()]
+                info["secondary_member_id"] = numeric_first[0] if numeric_first else cand_sec_ids[0]
+
+        # Distinguish Dual-Eligible FL Medicaid MMA Secondary Crossover (Traditional Medicare B confirmed + 10-digit FL Medicaid ID + MCDMMA)
+        # from Medicare Advantage / Commercial Primary Unverified plans!
+        FL_SMMC_MMA_PLANS = {
+            "SUNSHINE HEALTH", "SIMPLY HEALTHCARE", "HUMANA", "MOLINA HEALTHCARE",
+            "UNITEDHEALTHCARE", "WELLCARE", "AMBETTER",
+        }
+        has_mcdmma_tag = bool(re.search(r"\bMCD(?:LTCC/)?MMA\b", ins_header_block, re.IGNORECASE))
+        has_prior_ma_span = bool(re.search(r"\bFrom\s*\d{1,2}/\d{1,2}\s*to\s*\d{1,2}/\d{1,2}", other_info_block, re.IGNORECASE))
+
+        if (
+            detected_plan in FL_SMMC_MMA_PLANS
+            and has_traditional_med_b
+            and not info["managed_medicare"]
+            and not has_prior_ma_span
+            and bool(info["medicaid_id"])
+            and has_mcdmma_tag
+        ):
+            info["mma_plan"] = detected_plan
+            info["secondary_payer"] = "FLORIDA MEDICAID (QMB)" if info["is_qmb"] else "FLORIDA MEDICAID"
+        elif detected_plan:
+            info["secondary_payer"] = detected_plan
+        elif info["managed_medicare"]:
+            info["secondary_payer"] = "MANAGED MEDICARE (PART C)"
+        elif info["is_qmb"]:
+            info["secondary_payer"] = "FLORIDA MEDICAID (QMB)"
+        elif info["medicaid_id"]:
+            info["secondary_payer"] = "FLORIDA MEDICAID"
+
+        # 5. Admission Date (Box 18 / Loop 2300 DTP*435) — handles OCR typos 'AdmisslonDate', 'AdmissonDate', 'Init. Adm.Date', and Page 2 'Admission'
+        adm_m = re.search(
+            r"(?:Admiss[il1o]*n\s*Date|In[il1]t\.?\s*Adm\.?\s*D[ae]te)[\s\S]{0,120}?\b([0-9]{2}/[0-9]{2}/202[0-9])\b",
+            text,
+            re.IGNORECASE,
+        )
+        if not adm_m:
+            adm_m = re.search(r"\bAdmiss[il1o]*n\s*\n\s*([0-9]{2}/[0-9]{2}/202[0-9])\b", text, re.IGNORECASE)
         if adm_m:
             info["admission_date"] = self._normalize_date_str(adm_m.group(1))
 
@@ -425,7 +636,7 @@ class MultimodalDocumentIngestor:
             info["consultant_provider"] = consult_m.group(1).strip()
 
         # 7. Date of Service
-        eff_dos_m = re.search(r"(?:Effective\s*Date|Visit Date)[:\s]+([0-9]{2}/[0-9]{2}/[0-9]{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{1,2},?\s*\d{4})", text, re.IGNORECASE)
+        eff_dos_m = re.search(r"(?:Effective\s*Date|ctive\s*Date|Visit Date)[:\s]+([0-9]{2}/[0-9]{2}/[0-9]{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{1,2},?\s*\d{4})", text, re.IGNORECASE)
         if eff_dos_m:
             norm_dos = self._normalize_date_str(eff_dos_m.group(1))
             if norm_dos:
@@ -451,26 +662,150 @@ class MultimodalDocumentIngestor:
 
         return info
 
-    @staticmethod
-    def _extract_home_address(text: str) -> Optional[Dict[str, str]]:
-        """Finds the resident's home address line ('street,CITY[,]ST,ZIP'), skipping the
-        facility's own letterhead address. Returns None when no such line exists."""
-        pattern = re.compile(
-            r"^\s*(\d[\w\s#\.\-/]*?),\s*([A-Za-z \.]+?)\s*,?\s*([A-Z]{2})\s*,?\s*(\d{5})(?:-\d{4})?\s*$"
+    FACILITY_STREETS_RE = re.compile(
+        r"bass\s*creek|955\s*nw\s*3rd|15951\s*sw\s*41st",
+        re.IGNORECASE
+    )
+
+    # Longest-first regex patterns for South Florida cities when OCR omits commas before the city name
+    CONCAT_FL_CITY_PATTERNS = (
+        ("NORTH MIAMI BEACH", r"NORTH\s*MIAMI\s*BEACH"),
+        ("HALLANDALE BEACH", r"HALLANDALE\s*BEACH"),
+        ("LAUDERDALE LAKES", r"LAUDERDALE\s*LAKES"),
+        ("DEERFIELD BEACH", r"DEERFIELD\s*BEACH"),
+        ("HIALEAH GARDENS", r"HIALEAH\s*GARDENS"),
+        ("FORT LAUDERDALE", r"F[O0]?RT\s*L?AUDERDALE"),
+        ("PEMBROKE PINES", r"PEMBROKE\s*P[I1]?NES"),
+        ("POMPANO BEACH", r"POMPANO\s*BEACH"),
+        ("COCONUT CREEK", r"COCONUT\s*CREEK"),
+        ("CORAL SPRINGS", r"CORAL\s*SPRINGS"),
+        ("MIAMI GARDENS", r"MIAMI\s*GARDENS"),
+        ("MIAMI SPRINGS", r"MIAMI\s*SPRINGS"),
+        ("PEMBROKE PARK", r"PEMBROKE\s*PARK"),
+        ("CORAL GABLES", r"CORAL\s*GABLES"),
+        ("COOPER CITY", r"COOPER\s*CITY"),
+        ("MIAMI BEACH", r"MIAMI\s*BEACH"),
+        ("MIAMI LAKES", r"MIAMI\s*LAKES"),
+        ("NORTH MIAMI", r"NORTH\s*MIAMI"),
+        ("BOCA RATON", r"BOCA\s*RATON"),
+        ("LAUDERHILL", r"LAUDERHILL?"),
+        ("PLANTATION", r"PLANTATION"),
+        ("HOLLYWOOD", r"HOLLYWOOD"),
+        ("HOMESTEAD", r"HOMESTEAD"),
+        ("OPA-LOCKA", r"OPA[\-\s]*LOCKA"),
+        ("AVENTURA", r"AVENTURA"),
+        ("MIRAMAR", r"MIRAMAR"),
+        ("MARGATE", r"MARGATE"),
+        ("TAMARAC", r"TAMARAC"),
+        ("SUNRISE", r"SUNRISE"),
+        ("HIALEAH", r"HIALEAH"),
+        ("KENDALL", r"KENDALL"),
+        ("WESTON", r"WESTON"),
+        ("DAVIE", r"DAVIE"),
+        ("DORAL", r"DORAL"),
+        ("MIAMI", r"MIAMI"),
+    )
+
+    @classmethod
+    def _clean_ocr_street(cls, street: str) -> str:
+        s = street.strip(" ,.")
+        # Insert space between camelCase and digit/letter boundaries
+        s = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=\d)(?=[A-Za-z])|(?<=[A-Za-z])(?=\d)", " ", s)
+        s = s.upper()
+        # Normalize common OCR street/unit typos
+        s = re.sub(r"\bBIDG\b", "BLDG", s)
+        s = re.sub(r"\bTERA\s*CE\b", "TERRACE", s)
+        # Split glued unit designators FIRST so '7 THAVEAPT 323' -> '7 THAVE APT 323' and '23 RDST APT' before ordinal splitting
+        s = re.sub(r"(?<=[A-Z]{2})(APT|UNIT|BLDG|STE)(?=\b|\s|\d)", r" \1", s)
+        s = re.sub(r"\b(APT|UNIT|BLDG|STE)([A-Z])\b", r"\1 \2", s)
+        # Split ordinal suffixes glued to street types or directions (e.g. '7 THAVE' -> '7TH AVE', '23 RDST' -> '23RD ST', '55 THN' -> '55TH N')
+        s = re.sub(r"\b(\d+)\s*(ST|ND|RD|TH)(RD|ST|AVE|CT|DR|LN|WAY|BLVD|PL|TER|CIR|MNR|N|S|E|W)\b", r"\1\2 \3", s)
+        # Rejoin standalone ordinal numbers (e.g. '166 TH' -> '166TH')
+        s = re.sub(r"\b(\d+)\s+(ST|ND|RD|TH)\b", r"\1\2", s)
+        # Separate glued directional/street-type/unit tokens in all-caps OCR (e.g. FOXCROFTRDA 203 -> FOXCROFT RD A 203, UNITH -> UNIT H)
+        s = re.sub(r"\b(NW|NE|SW|SE)(?=[A-Z]{3,}\b)", r"\1 ", s)
+        s = re.sub(r"\b([NSWE])(?=(?:PARK|OCEAN|DIXIE|FEDERAL|SHORE|BAY|RIVER|PINE|FLAMINGO|UNIVERSITY|HIATUS|ANDREWS|MILITARY)[A-Z]*\b)", r"\1 ", s)
+        s = re.sub(r"(?<=[A-Z]{3})(DRIVE|COURT|TERRACE|STREET|AVENUE)\b", r" \1", s)
+        s = re.sub(r"(?<=[A-Z]{3})(RD|ST|AVE|CT|DR|LN|WAY|BLVD|PL|TER|CIR|MNR)(?:(?=\b)|(?=([A-Z])\s+\d))", r" \1 ", s)
+        s = re.sub(r"\b(APT|UNIT|BLDG|STE)([A-Z])\b", r"\1 \2", s)
+        s = re.sub(r"(?<=[A-Z]{2})(APT|UNIT|BLDG|STE)\b", r" \1", s)
+        s = re.sub(r"\s+", " ", s).strip(" ,.")
+        return s
+
+    @classmethod
+    def _extract_home_address(cls, text: str) -> Optional[Dict[str, str]]:
+        """Finds the resident's home address line, strictly skipping facility letterhead
+        and provider/pharmacy blocks. Returns None when no resident home address exists."""
+        # Restrict to RESIDENT INFORMATION section whenever present so letterhead & provider addresses cannot match
+        res_sec = re.search(
+            r"RESIDENT\s*INFORMATION([\s\S]*?)(?:PAYER\s*INFORMATION|OTHER\s*INFORMATION|CARE\s*PROVIDERS|PHARMACY|$)",
+            text, re.IGNORECASE
         )
-        for line in text.splitlines():
-            m = pattern.match(line)
-            if not m or re.search(r"bass\s*creek", m.group(1), re.IGNORECASE):
+        search_text = (res_sec.group(1) if res_sec else text).replace("，", ",")
+        lines = [ln.strip() for ln in search_text.splitlines() if ln.strip()]
+
+        # 1. Comma- or period-delimited line: 'street, CITY, ST, ZIP' or '5300W16thAve.Hialeah.FL.33012'
+        delim_pat = re.compile(
+            r"^\s*(\d[\w\s#\.\-/]*?)[,\.]\s*([A-Za-z \.]+?)\s*[,\.]?\s*([A-Z]{2})\s*[,\.]?\s*(\d{5})(?:-?\d{4})?\s*$"
+        )
+        for line in lines:
+            m = delim_pat.match(line)
+            if not m or cls.FACILITY_STREETS_RE.search(m.group(1)):
                 continue
             street, city, state, zip_code = (g.strip() for g in m.groups())
-            if re.search(r"[a-z]", street):
-                street = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=\d)(?=[A-Za-z])|(?<=[A-Za-z])(?=\d)", " ", street)
-                street = re.sub(r"(\d) (st|nd|rd|th)\b", r"\1\2", street)
+            street = cls._clean_ocr_street(street)
             city = re.sub(r"(?<=[A-Z])l", "I", city)
-            city = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", city).upper()
+            city = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", city).upper().strip(" .")
             if state == "FL":
-                city = MultimodalDocumentIngestor._canonical_fl_city(city)
+                city = cls._canonical_fl_city(city)
             return {"address": street, "city": city, "state": state, "zip": zip_code}
+
+        # 2. Concatenated South Florida address without comma before city (e.g. '3492FOXCROFTRDA203MIRAMARFL33025')
+        for line in lines:
+            if not re.match(r"^\d", line) or cls.FACILITY_STREETS_RE.search(line):
+                continue
+            for canon_city, city_re in cls.CONCAT_FL_CITY_PATTERNS:
+                m = re.match(
+                    rf"^(\d.+?)[\s,\.]*(?:{city_re})[\s,\.]*(FL)[\s,\.]*(\d{{5}})(?:-?\d{{4}})?$",
+                    line, re.IGNORECASE
+                )
+                if m:
+                    street = cls._clean_ocr_street(m.group(1))
+                    if len(street) >= 4:
+                        return {
+                            "address": street,
+                            "city": canon_city,
+                            "state": "FL",
+                            "zip": m.group(3),
+                        }
+
+        # 3. Wrapped 2-line Previous Address inside RESIDENT INFORMATION (e.g. street on line i-k, 'Pines,FL,33027' on line i)
+        if res_sec:
+            tail_pat = re.compile(r"^([A-Za-z][A-Za-z \.]+?)\s*,\s*(FL)\s*,?\s*(\d{5})(?:-?\d{4})?\s*$")
+            for idx, line in enumerate(lines):
+                tm = tail_pat.match(line)
+                if not tm:
+                    continue
+                tail_city, state, zip_code = tm.group(1).strip(), tm.group(2), tm.group(3)
+                for back in range(idx - 1, max(-1, idx - 5), -1):
+                    cand = lines[back]
+                    if re.match(r"^\d+\s+[A-Za-z0-9]", cand) and not re.match(r"^\d{2}/\d{2}/\d{4}$", cand) and not cls.FACILITY_STREETS_RE.search(cand):
+                        # Strip trailing partial city wrap (e.g. ',Pembroke')
+                        head_street = cand
+                        full_city = tail_city
+                        if "," in cand:
+                            head_street, city_prefix = cand.rsplit(",", 1)
+                            full_city = f"{city_prefix.strip()} {tail_city}"
+                        # Strip duplicated OCR column echo if present (e.g. 'PEMBROKE Pnes Apt G403')
+                        head_street = re.sub(r"\s+PEMBROKE\s+Pn.*$", "", head_street, flags=re.IGNORECASE)
+                        city = cls._canonical_fl_city(full_city.upper())
+                        return {
+                            "address": cls._clean_ocr_street(head_street),
+                            "city": city,
+                            "state": state,
+                            "zip": zip_code,
+                        }
+
         return None
 
     SOUTH_FL_CITIES = (

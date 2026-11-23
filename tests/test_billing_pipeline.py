@@ -291,6 +291,77 @@ class TestClinicalBillingPipeline(unittest.TestCase):
         issue_codes = [i["code"] for i in res2.get("scrutiny_issues", [])]
         self.assertIn("DUPLICATE_CLAIM_DETECTED", issue_codes, "Duplicate claim must be detected by Tier 8 Scrutiny")
 
+    def test_cms_fcso_reference_data_csvs_loaded(self):
+        """Verify authoritative CMS NCCI PTP, MUE, and FCSO LCD CSV reference datasets load cleanly."""
+        from compliance.reference_data import ReferenceDataLibrary
+        lib = ReferenceDataLibrary()
+        summary = lib.status_summary()
+        self.assertTrue(summary["ncci_ptp_loaded"], "NCCI PTP CSV dataset must be loaded")
+        self.assertTrue(summary["ncci_mue_loaded"], "NCCI MUE CSV dataset must be loaded")
+        self.assertTrue(summary["fcso_lcd_loaded"], "FCSO LCD CSV dataset must be loaded")
+        self.assertTrue(lib.lcd_covers("L36805", "M23.201")["covered"])
+
+    def test_post_835_patient_balance_statement_generator(self):
+        """Verify post-835 patient balance collector extracts PR adjustments and generates SMS payment link."""
+        claim_remittance = {
+            "patient_control_number": "ENC-BAL-001",
+            "total_charge": 295.00,
+            "total_paid": 130.00,
+            "patient_responsibility": 45.00,
+            "adjustments": [
+                {"group_code": "CO", "carc_code": "45", "amount": 120.00},
+                {"group_code": "PR", "carc_code": "1", "amount": 45.00},
+            ],
+        }
+        stmt = self.pipeline.balance_collector.generate_patient_statement_from_835(
+            claim_remittance=claim_remittance,
+            patient_info={"first_name": "Elena", "last_name": "Rostova", "phone": "3055550199"},
+            encounter_id="ENC-BAL-001",
+        )
+        self.assertEqual(stmt.patient_responsibility, 45.00)
+        self.assertEqual(stmt.deductible_amount, 45.00)
+        self.assertIn("https://pay.magnoliahealth.com/checkout/", stmt.payment_link_url)
+
+    def test_physician_legal_attestation_cryptographic_shield(self):
+        """Verify 1-Click Physician Attestation creates and validates SHA-256 signature."""
+        att = self.pipeline.attestation_engine.sign_attestation(
+            encounter_id="ENC-ATT-01",
+            provider_npi="1234567893",
+            provider_name="Dr. Sarah Ortega, APRN",
+            billing_summary="99214-25, 17000 ($295.00)",
+        )
+        self.assertTrue(att.is_attested)
+        self.assertEqual(len(att.signature_hash), 64)
+        self.assertTrue(self.pipeline.attestation_engine.verify_attestation(att, "1234567893"))
+        self.assertFalse(self.pipeline.attestation_engine.verify_attestation(att, "9999999999"))
+
+    def test_payer_edi_enrollment_tracker(self):
+        """Verify EDI enrollment tracker checks active vs unenrolled NPIs."""
+        active_res = self.pipeline.enrollment_tracker.check_enrollment_status("1234567890", "00590")
+        self.assertTrue(active_res["can_transmit"])
+        unenrolled_res = self.pipeline.enrollment_tracker.check_enrollment_status("0000000000", "00590")
+        self.assertFalse(unenrolled_res["can_transmit"])
+
+    def test_sales_roi_and_personalized_campaign_generator(self):
+        """Verify SalesMarketingEngine generates ROI projections and personalized call/SMS/email scripts."""
+        roi = self.pipeline.sales_engine.calculate_clinic_roi(monthly_claims=750, avg_claim_amount=195.0)
+        self.assertGreater(roi["financial_breakdown"]["total_annual_net_gain"], 100000.0)
+        campaign = self.pipeline.sales_engine.generate_personalized_campaign({
+            "lead_id": "LEAD-1396555892",
+            "npi": "1396555892",
+            "clinic_name": "ALL DERMOCARE GROUP INC",
+            "decision_maker_name": "Yoanka Rodriguez Prieto, APRN",
+            "decision_maker_title": "Owner",
+            "specialty": "Dermatology",
+            "city": "Miami",
+            "state": "FL",
+            "phone": "(786) 536-7066",
+            "estimated_total_annual_upside": 534460.5,
+        })
+        self.assertIn("ALL DERMOCARE GROUP INC", campaign["call_scripts"]["1_gatekeeper_bypass"])
+        self.assertEqual(len(campaign["sms_sequences"]), 4)
+        self.assertEqual(len(campaign["email_sequences"]), 5)
+
 
 if __name__ == "__main__":
     unittest.main()

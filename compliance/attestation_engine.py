@@ -6,7 +6,10 @@
 import hashlib
 from datetime import datetime
 from typing import Dict, Any, Optional
-from ..models.encounter import ProviderAttestation, ProviderInfo, BillingDetails
+try:
+    from models.encounter import ProviderAttestation, ProviderInfo, BillingDetails
+except ImportError:
+    from ..models.encounter import ProviderAttestation, ProviderInfo, BillingDetails
 
 class PhysicianAttestationEngine:
     """

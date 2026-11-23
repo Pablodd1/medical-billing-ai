@@ -4,9 +4,10 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com)
 [![HIPAA 5010](https://img.shields.io/badge/HIPAA-5010%20ANSI%20X12-green.svg)](https://x12.org)
 [![Clearinghouse](https://img.shields.io/badge/Clearinghouse-Office%20Ally%20SFTP-orange.svg)](https://officeally.com)
-[![Tests](https://img.shields.io/badge/Unit%20Tests-15%2F15%20Passing-brightgreen.svg)](tests/test_billing_pipeline.py)
+[![Tests](https://img.shields.io/badge/Unit%20Tests-20%2F20%20Passing-brightgreen.svg)](tests/test_billing_pipeline.py)
+[![Leads](https://img.shields.io/badge/NPPES%20CRM%20Leads-153%2B%20Verified%20Clinics-purple.svg)](leads/scraped_medical_clinics.csv)
 
-A production-grade, compliance-first Autonomous Medical Coding & Billing Engine connecting clinical encounter documentation to clearinghouses (**Office Ally**) via HIPAA 5010 ANSI X12 837P EDI transactions. Includes real-time 270/271 eligibility verification, 8-tier clinical scrutiny, human-in-the-loop (HITL) review queues, persistent claims ledger, and automated 835 remittance reconciliation.
+A production-grade, compliance-first **Autonomous Medical Coding, Billing & Commercial Growth Engine** connecting clinical encounter documentation to clearinghouses (**Office Ally**) via HIPAA 5010 ANSI X12 837P EDI transactions. Includes real-time 270/271 eligibility verification, 8-tier clinical scrutiny, human-in-the-loop (HITL) review queues, persistent claims ledger, automated 835 remittance reconciliation, post-835 patient SMS balance collection, live **CMS NPPES clinic lead scraping**, and a built-in **Outbound Sales & ROI Command Center** ([`SALES_AND_MARKETING_PLAYBOOK.md`](SALES_AND_MARKETING_PLAYBOOK.md)).
 
 ---
 
@@ -278,13 +279,19 @@ All API routes require authentication via header `X-API-Key: <key>` or query par
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/portal` | Visual Biller Portal for reviewing encounters and approving flagged claims. |
+| `GET` | `/portal` | 6-Tab Visual Biller & Executive Growth Portal (Intake, HITL Queue, Ledger, 835 ERA, NPPES CRM, Sales Scripts & ROI). |
 | `POST` | `/api/v1/encounter/process` | End-to-end ingestion, eligibility, coding, scrutiny, and 837P dispatch. |
 | `POST` | `/api/v1/eligibility/check` | Standalone real-time 270/271 eligibility verification. |
 | `GET` | `/api/v1/claims/review-queue` | Lists all encounters paused for human review. |
 | `GET` | `/api/v1/claims/{pcn}` | Retrieves claim lifecycle state and event trail from ledger. |
 | `POST` | `/api/v1/claims/{pcn}/approve-and-transmit` | Biller adjudication and 837P dispatch override. |
-| `POST` | `/api/v1/remittance/ingest-835` | Ingests 835 ERA remittance advice and generates auto-appeals. |
+| `POST` | `/api/v1/remittance/ingest-835` | Ingests 835 ERA remittance advice, generates auto-appeals & patient SMS checkout statements. |
+| `POST` | `/api/v1/compliance/attest` | Executes 1-Click cryptographic SHA-256 Physician Legal Attestation Shield. |
+| `POST` | `/api/v1/enrollment/verify` | Verifies Payer EDI Enrollment status for a Billing NPI + Payer ID. |
+| `GET` | `/api/v1/growth/leads` | Lists scraped medical clinic prospects from the persistent CRM (`153+` verified clinics). |
+| `POST` | `/api/v1/growth/leads/scrape` | Scrapes fresh medical clinics live from the U.S. CMS NPPES NPI Registry API. |
+| `POST` | `/api/v1/growth/campaign/generate` | Generates personalized Cold Call Scripts, Objection Rebuttals, 4-Step SMS & 5-Touch Cold Emails. |
+| `POST` | `/api/v1/growth/roi-calculator` | Calculates CFO-grade clinic ROI breakdown and pricing tiers. |
 | `GET` | `/health` | Basic service liveness check. |
 
 ---

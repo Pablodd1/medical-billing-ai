@@ -3,6 +3,53 @@ from datetime import datetime
 from typing import Dict, List, Any, Tuple, Optional, Set
 import re
 
+VALID_NDC_UNITS = {"UN", "ML", "GR", "F2", "ME"}
+HCPCS_DRUG_CODE_RE = re.compile(
+    r"^(?:J\d{4}|Q(?:01[3-8]\d|20\d{2}|40[78]\d|51\d{2}|99[5-9]\d)|S0[01]\d{2})$",
+    re.IGNORECASE,
+)
+
+
+def normalize_fda_ndc_11(ndc: Optional[str]) -> Optional[str]:
+    """Deterministically converts a HIPAA/FDA National Drug Code into an 11-digit 5-4-2 string
+    (no hyphens) for X12 837P Loop 2410 (LIN*N4).
+    Supports:
+      - 11-digit unhyphenated or 5-4-2 hyphenated (e.g. '00002-7510-01' -> '00002751001')
+      - 10-digit 4-4-2 hyphenated (e.g. '1234-5678-90' -> '01234567890')
+      - 10-digit 5-3-2 hyphenated (e.g. '12345-678-90' -> '12345067890')
+      - 10-digit 5-4-1 hyphenated (e.g. '12345-6789-0' -> '12345678900')
+    Rejects None, non-digits, all-zeros, or ambiguous unhyphenated 10-digit strings."""
+    if not ndc or not isinstance(ndc, (str, int)):
+        return None
+    raw = re.sub(r"^N4[\s:\*]*", "", str(ndc).strip(), flags=re.IGNORECASE).strip()
+    if not raw:
+        return None
+
+    if "-" in raw:
+        parts = raw.split("-")
+        if len(parts) != 3 or not all(p.isdigit() for p in parts):
+            return None
+        s1, s2, s3 = parts
+        shape = (len(s1), len(s2), len(s3))
+        if shape == (5, 4, 2):
+            res = f"{s1}{s2}{s3}"
+        elif shape == (4, 4, 2):
+            res = f"0{s1}{s2}{s3}"
+        elif shape == (5, 3, 2):
+            res = f"{s1}0{s2}{s3}"
+        elif shape == (5, 4, 1):
+            res = f"{s1}{s2}0{s3}"
+        else:
+            return None
+    else:
+        if not re.fullmatch(r"\d{11}", raw):
+            return None
+        res = raw
+
+    if res == "00000000000":
+        return None
+    return res
+
 class ScrutinyResult:
     def __init__(self, passed: bool, confidence_score: float, issues: List[Dict[str, Any]], clean_claim_data: Dict[str, Any] = None, claim_fingerprint: str = "", timely_filing: Dict[str, Any] = None):
         self.passed = passed
@@ -60,7 +107,7 @@ class MedicalBillingScrutinizer:
         },
         "20610": {
             "lcd_id": "L36805",
-            "allowed_dx": ["M17.0", "M17.11", "M17.12", "M16.11", "M16.12", "M25.561", "M25.562"],
+            "allowed_dx": ["M17.0", "M17.11", "M17.12", "M17.9", "M16.0", "M16.11", "M16.12", "M16.9", "M25.561", "M25.562"],
             "description": "Aspiration/injection intermediate or major joint"
         },
         "17000": {
@@ -74,13 +121,27 @@ class MedicalBillingScrutinizer:
         ("99214", "17000"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "E/M with minor surgical procedure requires significant separate identifiable service"},
         ("99213", "17000"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "E/M with minor surgical procedure requires significant separate identifiable service"},
         ("99214", "20610"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "E/M with major joint injection requires separate identifiable E/M service"},
+        ("99213", "20610"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "E/M with major joint injection requires separate identifiable E/M service"},
+        ("99305", "20610"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "SNF E/M with major joint injection requires separate identifiable E/M service"},
+        ("99309", "20610"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "SNF E/M with major joint injection requires separate identifiable E/M service"},
+        ("99305", "17000"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "SNF E/M with minor surgical procedure requires separate identifiable E/M service"},
+        ("99309", "17000"): {"allowed_with_modifier": True, "required_modifier": "25", "reason": "SNF E/M with minor surgical procedure requires separate identifiable E/M service"},
         ("11042", "97597"): {"allowed_with_modifier": False, "required_modifier": None, "reason": "Mutually exclusive wound debridement services"},
+        ("99304", "99307"): {"allowed_with_modifier": False, "required_modifier": None, "reason": "Initial and Subsequent Nursing Facility E/M cannot be billed together on same date of service"},
+        ("99305", "99308"): {"allowed_with_modifier": False, "required_modifier": None, "reason": "Initial and Subsequent Nursing Facility E/M cannot be billed together on same date of service"},
+        ("99305", "99309"): {"allowed_with_modifier": False, "required_modifier": None, "reason": "Initial and Subsequent Nursing Facility E/M cannot be billed together on same date of service"},
+        ("99306", "99309"): {"allowed_with_modifier": False, "required_modifier": None, "reason": "Initial and Subsequent Nursing Facility E/M cannot be billed together on same date of service"},
+        ("99306", "99310"): {"allowed_with_modifier": False, "required_modifier": None, "reason": "Initial and Subsequent Nursing Facility E/M cannot be billed together on same date of service"},
     }
 
     MUE_LIMITS = {
-        "99213": 1,
-        "99214": 1,
-        "99215": 1,
+        "99202": 1, "99203": 1, "99204": 1, "99205": 1,
+        "99212": 1, "99213": 1, "99214": 1, "99215": 1,
+        "99304": 1, "99305": 1, "99306": 1,
+        "99307": 1, "99308": 1, "99309": 1, "99310": 1,
+        "99341": 1, "99342": 1, "99344": 1, "99345": 1,
+        "99347": 1, "99348": 1, "99349": 1, "99350": 1,
+        "G2211": 1,
         "17000": 1,
         "20610": 2,
         "82306": 1
@@ -92,12 +153,20 @@ class MedicalBillingScrutinizer:
         "11": "Office",
         "12": "Home / Domiciliary",
         "13": "Assisted Living Facility",
+        "14": "Group Home",
+        "16": "Temporary Lodging",
+        "20": "Urgent Care Facility",
         "21": "Inpatient Hospital",
         "22": "On Campus Outpatient Hospital",
         "23": "Emergency Room",
+        "24": "Ambulatory Surgical Center",
         "31": "Skilled Nursing Facility",
-        "32": "Nursing Facility"
+        "32": "Nursing Facility",
+        "33": "Custodial Care Facility",
+        "34": "Hospice",
     }
+
+    normalize_fda_ndc_11 = staticmethod(normalize_fda_ndc_11)
 
     def scrutinize_encounter(self, encounter: Dict[str, Any]) -> ScrutinyResult:
         issues = []
@@ -123,22 +192,26 @@ class MedicalBillingScrutinizer:
 
         cpt_codes = billing.get("cpt_codes", [])
         em_code = cpt_codes[0].get("code", "") if cpt_codes and isinstance(cpt_codes[0], dict) else (cpt_codes[0].code if cpt_codes else "")
-        if em_code.startswith("992"):
+        if em_code.startswith("992") or re.match(r"^9930[4-9]|99310$", em_code):
             mdm_issues, mdm_penalty = self._validate_em_documentation(em_code, clinical_note, billing)
             issues.extend(mdm_issues)
             confidence -= mdm_penalty
 
-        # TIER 2: Florida Scope of Practice & Credentialing
-        fl_issues, fl_penalty = self._validate_florida_scope_of_practice(provider, billing, clinical_note, payer)
+        # TIER 2: Florida Scope of Practice, QMB Federal Protection & Credentialing
+        fl_issues, fl_penalty = self._validate_florida_scope_of_practice(provider, billing, clinical_note, payer, patient)
         issues.extend(fl_issues)
         confidence -= fl_penalty
 
-        # TIER 3: Medical Necessity & FCSO Florida LCD/NCD
+        # TIER 3: Medical Necessity & FCSO Florida LCD/NCD + FDA NDC Drug/Biologic Rules
         med_issues, med_penalty = self._validate_medical_necessity(billing, payer)
         issues.extend(med_issues)
         confidence -= med_penalty
 
-        # TIER 4: NCCI Edits (PTP Bundling & MUE limits)
+        ndc_issues, ndc_penalty = self._validate_fda_ndc_compliance(billing)
+        issues.extend(ndc_issues)
+        confidence -= ndc_penalty
+
+        # TIER 4: NCCI Edits (PTP Bundling, G2211 Add-On & MUE limits)
         ncci_issues, ncci_penalty = self._validate_ncci_edits(billing, clinical_note)
         issues.extend(ncci_issues)
         confidence -= ncci_penalty
@@ -148,7 +221,7 @@ class MedicalBillingScrutinizer:
         issues.extend(snip_issues)
         confidence -= snip_penalty
 
-        # TIER 6: Place of Service (POS) Classification & Validation
+        # TIER 6: Place of Service (POS) Classification & CPT Setting Compatibility
         pos_issues, pos_penalty = self._validate_place_of_service(billing, clinical_note)
         issues.extend(pos_issues)
         confidence -= pos_penalty
@@ -193,6 +266,34 @@ class MedicalBillingScrutinizer:
                 "message": f"Place of Service code '{pos}' is not a valid standard HIPAA POS code."
             })
             penalty += 0.25
+            return issues, penalty
+
+        for item in billing.get("cpt_codes", []):
+            code = str(item.get("code") if isinstance(item, dict) else item.code).strip().upper()
+            if re.match(r"^(?:9930[4-9]|99310)$", code) and pos not in ("31", "32", "02"):
+                issues.append({
+                    "tier": "Tier 6: Place of Service (POS)",
+                    "severity": "CRITICAL",
+                    "code": "POS_CPT_MISMATCH",
+                    "message": f"Nursing Facility E/M CPT {code} cannot be billed with POS '{pos}' ({self.VALID_POS_CODES.get(pos)}). Expected POS 31, 32, or 02 (Telehealth)."
+                })
+                penalty += 0.35
+            elif re.match(r"^992[01][1-5]$", code) and pos in ("21", "31", "32"):
+                issues.append({
+                    "tier": "Tier 6: Place of Service (POS)",
+                    "severity": "CRITICAL",
+                    "code": "POS_CPT_MISMATCH",
+                    "message": f"Office/Outpatient E/M CPT {code} cannot be billed in institutional facility POS '{pos}' ({self.VALID_POS_CODES.get(pos)})."
+                })
+                penalty += 0.35
+            elif re.match(r"^(?:9934[1245]|9934[7-9]|99350)$", code) and pos in ("11", "21", "31", "32"):
+                issues.append({
+                    "tier": "Tier 6: Place of Service (POS)",
+                    "severity": "CRITICAL",
+                    "code": "POS_CPT_MISMATCH",
+                    "message": f"Home/Residence E/M CPT {code} cannot be billed with POS '{pos}' ({self.VALID_POS_CODES.get(pos)}). Expected POS 12, 13, 14, 16, 02, or 10."
+                })
+                penalty += 0.35
 
         return issues, penalty
 
@@ -338,7 +439,14 @@ class MedicalBillingScrutinizer:
 
         return issues, penalty
 
-    def _validate_florida_scope_of_practice(self, provider: Dict[str, Any], billing: Dict[str, Any], note: Dict[str, Any], payer: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
+    def _validate_florida_scope_of_practice(
+        self,
+        provider: Dict[str, Any],
+        billing: Dict[str, Any],
+        note: Dict[str, Any],
+        payer: Dict[str, Any],
+        patient: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[List[Dict[str, Any]], float]:
         issues = []
         penalty = 0.0
 
@@ -347,6 +455,7 @@ class MedicalBillingScrutinizer:
         specialty = str(provider.get("specialty", "")).lower()
         is_autonomous = provider.get("fl_autonomous_registered", False)
         has_protocol = provider.get("has_collaborative_protocol", False)
+        pos = str(billing.get("place_of_service", "11")).strip()
 
         if state == "FL" and "APRN" in prov_type:
             primary_care_specialties = ["family medicine", "general pediatrics", "general internal medicine", "primary care"]
@@ -369,6 +478,89 @@ class MedicalBillingScrutinizer:
                     "message": "Non-autonomous APRN in Florida must have an active collaborative protocol on file."
                 })
                 penalty += 0.40
+
+        # CMS 42 CFR § 410.26: Incident-To (100% physician fee schedule) is strictly prohibited in institutional settings (POS 21, 31, 32)
+        if billing.get("incident_to") and pos in ("21", "22", "23", "31", "32"):
+            issues.append({
+                "tier": "Tier 2: Medicare Incident-To Compliance",
+                "severity": "CRITICAL",
+                "code": "INCIDENT_TO_FACILITY_PROHIBITED",
+                "message": f"Incident-To billing (42 CFR § 410.26) is strictly prohibited in facility POS '{pos}'. NPP services in SNF/hospital must be billed directly under the NPP's NPI (85% MPFS)."
+            })
+            penalty += 0.40
+
+        # Federal QMB Balance Billing Prohibition: Social Security Act § 1902(n)(3)(B)
+        pat = patient or {}
+        sec = pat.get("secondary_payer")
+        sec_str = str(sec.get("name", "") if isinstance(sec, dict) else (sec or "")).lower()
+        is_qmb = bool(pat.get("qmb_eligible")) or "qmb" in sec_str or "qmb" in str(payer.get("name", "")).lower()
+        copay_collected = float(billing.get("patient_copay_collected", 0.0) or 0.0)
+        if is_qmb and copay_collected > 0:
+            issues.append({
+                "tier": "Tier 2: Federal QMB Protection",
+                "severity": "CRITICAL",
+                "code": "QMB_BALANCE_BILLING_PROHIBITED",
+                "message": f"Patient is QMB-protected; collecting ${copay_collected:.2f} violates Social Security Act § 1902(n)(3)(B) (42 U.S.C. § 1396a(n)(3)(B)). Refund immediately."
+            })
+            penalty += 0.50
+
+        return issues, penalty
+
+    def _validate_fda_ndc_compliance(self, billing: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
+        """Enforces FDA/CMS/Medicaid Loop 2410 (LIN*N4 + CTP) 11-digit 5-4-2 NDC and unit rules
+        for HCPCS drug/biologic codes (J0000-J9999, Q drug/biosimilar codes, S0010-S0199)."""
+        issues: List[Dict[str, Any]] = []
+        penalty = 0.0
+
+        for item in billing.get("cpt_codes", []):
+            is_dict = isinstance(item, dict)
+            code = str(item.get("code") if is_dict else getattr(item, "code", "")).strip().upper()
+            raw_ndc = (
+                (item.get("ndc") or item.get("ndc_code"))
+                if is_dict
+                else (getattr(item, "ndc", None) or getattr(item, "ndc_code", None))
+            )
+            raw_qty = (
+                (item.get("ndc_quantity") if item.get("ndc_quantity") is not None else item.get("ndc_units"))
+                if is_dict
+                else (getattr(item, "ndc_quantity", None) if getattr(item, "ndc_quantity", None) is not None else getattr(item, "ndc_units", None))
+            )
+            raw_unit = (
+                (item.get("ndc_unit") or item.get("ndc_uom"))
+                if is_dict
+                else (getattr(item, "ndc_unit", None) or getattr(item, "ndc_uom", None))
+            )
+
+            is_drug_code = bool(HCPCS_DRUG_CODE_RE.match(code))
+            if not is_drug_code and raw_ndc is None:
+                continue
+
+            norm_ndc = normalize_fda_ndc_11(raw_ndc)
+            unit_clean = str(raw_unit or "").strip().upper()
+            qty_ok = False
+            if raw_qty is not None:
+                try:
+                    qty_ok = float(raw_qty) > 0
+                except (TypeError, ValueError):
+                    qty_ok = False
+            unit_ok = unit_clean in VALID_NDC_UNITS
+
+            if not norm_ndc or (is_drug_code and (not qty_ok or not unit_ok)):
+                issues.append({
+                    "tier": "Tier 3: FDA NDC & Drug/Biologic Compliance",
+                    "severity": "CRITICAL",
+                    "code": "MISSING_OR_INVALID_FDA_NDC",
+                    "message": (
+                        f"Service line '{code}' requires a valid 11-digit 5-4-2 FDA NDC (LIN*N4), "
+                        f"positive NDC quantity, and valid X12 unit qualifier ({', '.join(sorted(VALID_NDC_UNITS))}) "
+                        f"for Loop 2410 (CTP). Received ndc='{raw_ndc}', quantity='{raw_qty}', unit='{raw_unit}'."
+                    ),
+                })
+                penalty += 0.40
+            elif is_dict:
+                item["ndc"] = norm_ndc
+                if unit_ok:
+                    item["ndc_unit"] = unit_clean
 
         return issues, penalty
 
@@ -403,11 +595,41 @@ class MedicalBillingScrutinizer:
         penalty = 0.0
 
         cpt_items = billing.get("cpt_codes", [])
-        billed_cpts = [item.get("code") if isinstance(item, dict) else item.code for item in cpt_items]
+        billed_cpts = [str(item.get("code") if isinstance(item, dict) else item.code).strip().upper() for item in cpt_items]
         modifiers_by_cpt = {
-            (item.get("code") if isinstance(item, dict) else item.code): (item.get("modifiers", []) if isinstance(item, dict) else item.modifiers)
+            str(item.get("code") if isinstance(item, dict) else item.code).strip().upper(): (
+                item.get("modifiers", []) if isinstance(item, dict) else item.modifiers
+            )
             for item in cpt_items
         }
+
+        # CMS G2211 Complexity Add-On Validation (2025/2026 MPFS):
+        # Eligible ONLY with Office/Outpatient (99202-99215) or Home/Residence (99341-99350);
+        # NEVER valid on SNF/NF (99304-99310), Inpatient, or ED claims.
+        if "G2211" in billed_cpts:
+            eligible_bases = [
+                c for c in billed_cpts
+                if re.match(r"^(?:992[01][2-5]|9934[1245]|9934[7-9]|99350)$", c)
+            ]
+            if not eligible_bases:
+                issues.append({
+                    "tier": "Tier 4: CMS G2211 Add-On Edits",
+                    "severity": "CRITICAL",
+                    "code": "G2211_INELIGIBLE_BASE_OR_SETTING",
+                    "message": "HCPCS G2211 is restricted to Office/Outpatient (99202-99215) or Home/Residence (99341-99350) longitudinal care and is NEVER payable with SNF/NF codes (99304-99310) or standalone."
+                })
+                penalty += 0.40
+            else:
+                exempt_prev = {"G0438", "G0439", "G0101", "G0008", "G0009", "G0010"}
+                has_mod25_on_base = any("25" in (modifiers_by_cpt.get(b) or []) for b in eligible_bases)
+                if has_mod25_on_base and not (set(billed_cpts) & exempt_prev):
+                    issues.append({
+                        "tier": "Tier 4: CMS G2211 Add-On Edits",
+                        "severity": "CRITICAL",
+                        "code": "G2211_MODIFIER_25_CONFLICT",
+                        "message": "HCPCS G2211 is not payable when the base E/M code carries Modifier -25 unless paired with an exempt Medicare Part B preventive service (e.g., AWV G0438/G0439, G0101, or Part B vaccine administration)."
+                    })
+                    penalty += 0.35
 
         for (col1, col2), edit in self.NCCI_PTP_EDITS.items():
             if col1 in billed_cpts and col2 in billed_cpts:
@@ -419,7 +641,7 @@ class MedicalBillingScrutinizer:
                         "tier": "Tier 4: NCCI PTP Edits",
                         "severity": "CRITICAL",
                         "code": "NCCI_MUTUALLY_EXCLUSIVE",
-                        "message": f"CPT {col1} and CPT {col2} are mutually exclusive under NCCI PTP edits."
+                        "message": f"CPT {col1} and CPT {col2} are mutually exclusive under NCCI PTP edits. {edit['reason']}."
                     })
                     penalty += 0.40
                 elif req_mod:
@@ -435,7 +657,7 @@ class MedicalBillingScrutinizer:
 
         # MUE (Medically Unlikely Edits) Unit Limits
         for item in cpt_items:
-            code = item.get("code") if isinstance(item, dict) else item.code
+            code = str(item.get("code") if isinstance(item, dict) else item.code).strip().upper()
             units = item.get("units", 1) if isinstance(item, dict) else getattr(item, "units", 1)
             if code in self.MUE_LIMITS:
                 max_units = self.MUE_LIMITS[code]

@@ -21,11 +21,13 @@ from datetime import datetime
 try:
     from config import OfficeAllyConfig
     from transmission.sftp_client import OfficeAllySFTPClient
+    from transmission.office_ally_companion import OfficeAllyCompanionValidator
     from remittance.ack_parsers import AcknowledgmentParser
     from remittance.claim_ledger import ClaimLedger
 except ImportError:
     from ..config import OfficeAllyConfig
     from ..transmission.sftp_client import OfficeAllySFTPClient
+    from ..transmission.office_ally_companion import OfficeAllyCompanionValidator
     from ..remittance.ack_parsers import AcknowledgmentParser
     from ..remittance.claim_ledger import ClaimLedger
 
@@ -38,6 +40,7 @@ class OfficeAllyDispatcher:
         sftp_client: Optional[OfficeAllySFTPClient] = None,
         allow_simulation: Optional[bool] = None,
         ledger: Optional[ClaimLedger] = None,
+        enforce_companion_check: bool = False,
     ):
         self.config = config or OfficeAllyConfig()
         if submitter_id:
@@ -45,6 +48,10 @@ class OfficeAllyDispatcher:
         self._sftp_client = sftp_client
         self.ledger = ledger or ClaimLedger()
         self.ack_parser = AcknowledgmentParser()
+        self.companion_validator = OfficeAllyCompanionValidator(config=self.config)
+        self.enforce_companion_check = enforce_companion_check or (
+            os.getenv("OA_ENFORCE_COMPANION_PREFLIGHT", "").lower() in ("1", "true", "yes")
+        )
         self.transmitted_batches = []
         # Simulation is opt-in via env var; otherwise requires real creds
         if allow_simulation is None:
@@ -57,13 +64,34 @@ class OfficeAllyDispatcher:
             self._sftp_client = OfficeAllySFTPClient(self.config)
         return self._sftp_client
 
+    def preflight_audit(self, x12_837_content: str, filename: Optional[str] = None,
+                        run_pyx12: bool = True) -> Dict[str, Any]:
+        """Runs OfficeAllyCompanionValidator pre-flight scrub on an outbound 837P batch."""
+        return self.companion_validator.validate_837p(
+            x12_837_content, filename=filename, run_pyx12=run_pyx12
+        )
+
     def dispatch_batch(self, x12_837_content: str, batch_id: str = None,
-                       test: bool = False) -> Dict[str, Any]:
+                       test: Optional[bool] = None) -> Dict[str, Any]:
         now = datetime.now()
         batch_id = batch_id or f"BATCH_{now.strftime('%Y%m%d_%H%M%S')}"
+        # CRITICAL OA SAFETY RULE: Office Ally ignores ISA15 ('T' vs 'P') and routes
+        # strictly by whether 'OATEST' appears in the filename. Automatically set test=True
+        # whenever ISA15 == 'T' or config.usage_indicator == 'T'!
+        isa15 = self._extract_isa15(x12_837_content)
+        is_test = bool(test) or (test is None and (isa15 == "T" or self.config.usage_indicator == "T"))
 
         if self.config.has_sftp_credentials:
-            upload = self.client.upload_claim_file(x12_837_content, batch_id, test=test)
+            planned_filename = OfficeAllySFTPClient.build_claim_filename(
+                self.config.claims_submitter_id, batch_id, test=is_test
+            )
+            if self.enforce_companion_check:
+                preflight = self.preflight_audit(x12_837_content, filename=planned_filename, run_pyx12=True)
+                if not preflight["ready_for_office_ally"]:
+                    err_msgs = "; ".join(e["message"] for e in preflight["errors"][:5])
+                    raise ValueError(f"Office Ally Companion Pre-Flight blocked live upload: {err_msgs}")
+
+            upload = self.client.upload_claim_file(x12_837_content, batch_id, test=is_test)
             record = {
                 "batch_id": batch_id,
                 "filename": upload["filename"],
@@ -72,6 +100,7 @@ class OfficeAllyDispatcher:
                 "byte_size": upload["byte_size"],
                 "status": "SUBMITTED_AWAITING_ACK",
                 "simulation": False,
+                "test_file": is_test,
             }
             self.transmitted_batches.append(record)
             isa13, gs06 = self._extract_control_numbers(x12_837_content)
@@ -119,6 +148,15 @@ class OfficeAllyDispatcher:
             "ack_999_functional": {"status": "ACCEPTED", "simulated": True},
             "ack_277ca_claim_level": {"status": "ACCEPTED_FORWARDED_TO_PAYER", "simulated": True},
         }
+
+    @staticmethod
+    def _extract_isa15(x12_content: str) -> str:
+        """Extracts ISA15 ('P' vs 'T') from the X12 ISA header."""
+        for seg in x12_content.replace("\n", "~").split("~"):
+            parts = seg.strip().split("*")
+            if parts and parts[0] == "ISA" and len(parts) > 15:
+                return parts[15].strip()
+        return ""
 
     @staticmethod
     def _extract_control_numbers(x12_content: str) -> tuple:

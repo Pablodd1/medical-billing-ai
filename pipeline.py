@@ -5,7 +5,7 @@
 
 import sys
 import os
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Union, Optional
 
 # Ensure current directory is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +23,11 @@ try:
     from transmission.office_ally_dispatcher import OfficeAllyDispatcher
     from remittance.era_835_parser import ERA_835_Parser
     from remittance.denial_appeals_engine import DenialAppealsEngine
+    from billing.patient_balance_collector import PatientBalanceCollector
+    from enrollment.edi_enrollment_tracker import PayerEDIEnrollmentTracker
+    from compliance.attestation_engine import PhysicianAttestationEngine
+    from growth.nppes_lead_scraper import NPPESLeadScraper
+    from growth.sales_marketing_engine import SalesMarketingEngine
     from config import OfficeAllyConfig
 except ImportError:
     from .models.encounter import EncounterPayload, DocumentSourceType, PatientInfo, ProviderInfo, PayerInfo, ClinicalNoteParsed, BillingDetails
@@ -35,6 +40,11 @@ except ImportError:
     from .transmission.office_ally_dispatcher import OfficeAllyDispatcher
     from .remittance.era_835_parser import ERA_835_Parser
     from .remittance.denial_appeals_engine import DenialAppealsEngine
+    from .billing.patient_balance_collector import PatientBalanceCollector
+    from .enrollment.edi_enrollment_tracker import PayerEDIEnrollmentTracker
+    from .compliance.attestation_engine import PhysicianAttestationEngine
+    from .growth.nppes_lead_scraper import NPPESLeadScraper
+    from .growth.sales_marketing_engine import SalesMarketingEngine
     from .config import OfficeAllyConfig
 
 class AutonomousMedicalBillingPipeline:
@@ -62,6 +72,11 @@ class AutonomousMedicalBillingPipeline:
         self.hcfa_auditor = HCFA1500ExtractorAndAuditor()
         self.era_parser = ERA_835_Parser()
         self.appeals_engine = DenialAppealsEngine()
+        self.balance_collector = PatientBalanceCollector()
+        self.enrollment_tracker = PayerEDIEnrollmentTracker()
+        self.attestation_engine = PhysicianAttestationEngine()
+        self.lead_scraper = NPPESLeadScraper()
+        self.sales_engine = SalesMarketingEngine()
 
     # ── Normalization Helpers ─────────────────────────────────────────────────
 
@@ -129,12 +144,14 @@ class AutonomousMedicalBillingPipeline:
         encounter_id: str = "ENC-001",
         date_of_service: str = "2026-09-25",
         is_telehealth: bool = False,
-        place_of_service_override: Optional[str] = None
+        place_of_service_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         pipeline_log = []
 
         # STAGE 1: Multimodal Ingestion & Multi-Date / POS Disambiguation
         parsed_note = self.ingestor.ingest_document(raw_doc_or_content, doc_type)
+        if place_of_service_override:
+            parsed_note.place_of_service_detected = str(place_of_service_override)
         
         # Disambiguate Date of Service (DOS)
         effective_dos = date_of_service
@@ -181,9 +198,6 @@ class AutonomousMedicalBillingPipeline:
 
         # STAGE 3: Clinical NLP Coding & MDM
         billing = self.coding_engine.generate_coding(parsed_note, is_telehealth=is_telehealth)
-        if place_of_service_override:
-            # Biller-verified POS (e.g. 31 Part A SNF stay vs 32 nursing facility) wins over text detection
-            billing.place_of_service = place_of_service_override
         pipeline_log.append(f"[Stage 3] Coded {len(billing.diagnosis_codes)} ICD-10 dx and {len(billing.cpt_codes)} CPT lines (POS={billing.place_of_service}). Total: ${billing.total_charge}")
 
         encounter_payload = EncounterPayload(
@@ -232,10 +246,16 @@ class AutonomousMedicalBillingPipeline:
                 "confidence_score": scrutiny_res.confidence_score,
                 "total_billed": billing.total_charge,
                 "total_charge": billing.total_charge,
+                "place_of_service": billing.place_of_service,
                 "billing_details": billing,
+                "diagnosis_codes": [d.model_dump() for d in billing.diagnosis_codes],
+                "cpt_codes": [c.model_dump() for c in billing.cpt_codes],
                 "scrutiny_issues": scrutiny_res.issues,
                 "hcfa_missing_fields": hcfa_res["missing_fields"],
                 "physician_queries": hcfa_res["physician_queries"],
+                "physician_attestation_prompt": self.attestation_engine.generate_attestation_prompt(
+                    encounter_id, provider, billing
+                ),
                 "claim_fingerprint": scrutiny_res.claim_fingerprint,
                 "timely_filing": scrutiny_res.timely_filing,
                 "pipeline_log": pipeline_log
@@ -271,10 +291,16 @@ class AutonomousMedicalBillingPipeline:
             "total_billed": billing.total_charge,
             "total_charge": billing.total_charge,
             "billing_details": billing,
+            "diagnosis_codes": [d.model_dump() for d in billing.diagnosis_codes],
+            "cpt_codes": [c.model_dump() for c in billing.cpt_codes],
+            "physician_attestation_prompt": self.attestation_engine.generate_attestation_prompt(
+                encounter_id, provider, billing
+            ),
             "claim_fingerprint": scrutiny_res.claim_fingerprint,
             "timely_filing": scrutiny_res.timely_filing,
             "has_secondary_cob": bool(patient.secondary_payer),
             "x12_837_snippet": x12_837_content.split("\n")[:12],
+            "x12_837_full": x12_837_content,
             "edi_837p_payload": x12_837_content,
             "clearinghouse_dispatch": dispatch_res,
             "pipeline_log": pipeline_log

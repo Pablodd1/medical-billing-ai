@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Medical Biller Portal | Autonomous Billing AI Engine</title>
+  <meta name="description" content="Autonomous Medical Billing AI Engine, 8-Tier Clinical Scrutiny, HIPAA 5010 837P/835 Clearinghouse Portal, Live NPPES Clinic Lead Scraper & Outbound Sales Command Center.">
+  <title>Medical Biller &amp; Executive Growth Portal | Autonomous Billing AI Engine v2.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -14,90 +15,117 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
   <!-- Top Navigation -->
-  <header class="bg-indigo-900 text-white shadow-md">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+  <header class="bg-indigo-950 text-white shadow-lg border-b border-indigo-800">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex flex-wrap justify-between items-center gap-4">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center text-white text-xl font-bold shadow">
-          <i class="fa-solid fa-notes-medical"></i>
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center text-white text-xl font-bold shadow-md">
+          <i class="fa-solid fa-notes-medical" aria-hidden="true"></i>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight">Autonomous Medical Billing Portal</h1>
-          <p class="text-xs text-indigo-200">Office Ally Clearinghouse Integration &bull; 8-Tier Clinical Scrutiny</p>
+          <h1 class="text-xl font-bold tracking-tight">Autonomous Medical Billing AI &amp; Growth Command Center</h1>
+          <p class="text-xs text-indigo-200">HIPAA 5010 837P/835 &bull; Office Ally Clearinghouse &bull; 8-Tier Clinical Scrutiny &bull; Live NPPES CRM &amp; Sales Engine</p>
         </div>
       </div>
-      <div class="flex items-center space-x-4">
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+      <div class="flex items-center space-x-3">
+        <a href="/TodayPatients" id="backToAimsLink" class="hidden inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition">
+          &larr; Back to AIMS
+        </a>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
           <span class="w-2 h-2 mr-2 bg-emerald-400 rounded-full animate-pulse"></span>
-          Engine v2.0 Live
+          Engine v2.0 Operational
         </span>
-        <div class="flex items-center space-x-2 text-xs bg-indigo-800/80 px-3 py-1.5 rounded-lg border border-indigo-700">
-          <i class="fa-solid fa-key text-amber-400"></i>
-          <input id="apiKeyInput" type="password" value="" placeholder="Enter API Key" class="bg-transparent text-white focus:outline-none w-36 font-mono" title="API Key">
+        <div class="flex items-center space-x-2 text-xs bg-indigo-900/90 px-3 py-1.5 rounded-lg border border-indigo-700">
+          <i class="fa-solid fa-key text-amber-400" aria-hidden="true"></i>
+          <label for="apiKeyInput" class="sr-only">API Key</label>
+          <input id="apiKeyInput" type="password" value="" placeholder="Enter API Key" aria-label="HIPAA Authorized API Key" class="bg-transparent text-white focus:outline-none w-36 font-mono" title="API Key">
         </div>
       </div>
     </div>
   </header>
 
   <!-- Main Container -->
-  <main class="max-w-7xl mx-auto px-6 py-8">
+  <main class="max-w-7xl mx-auto px-6 py-6">
     <!-- Tab Controls -->
-    <div class="flex border-b border-slate-200 mb-8 space-x-8">
-      <button onclick="switchTab('intake')" id="tab-btn-intake" class="tab-btn pb-3 px-1 border-b-2 font-semibold text-sm flex items-center space-x-2 border-indigo-600 text-indigo-600">
-        <i class="fa-solid fa-file-medical"></i>
-        <span>Encounter Intake &amp; Scrutiny</span>
+    <nav aria-label="Portal Navigation Tabs" class="flex flex-wrap border-b border-slate-200 mb-6 gap-2 sm:gap-6">
+      <button onclick="switchTab('intake')" id="tab-btn-intake" class="tab-btn pb-3 px-2 border-b-2 font-semibold text-xs sm:text-sm flex items-center space-x-2 border-indigo-600 text-indigo-600">
+        <i class="fa-solid fa-file-medical" aria-hidden="true"></i>
+        <span>1. Encounter Intake &amp; Scrutiny</span>
       </button>
-      <button onclick="switchTab('queue')" id="tab-btn-queue" class="tab-btn pb-3 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
-        <i class="fa-solid fa-user-check"></i>
-        <span>HITL Review Queue</span>
+      <button onclick="switchTab('queue')" id="tab-btn-queue" class="tab-btn pb-3 px-2 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i class="fa-solid fa-user-check" aria-hidden="true"></i>
+        <span>2. HITL Review Queue</span>
         <span id="queueBadge" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800 hidden">0</span>
       </button>
-      <button onclick="switchTab('ledger')" id="tab-btn-ledger" class="tab-btn pb-3 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
-        <i class="fa-solid fa-receipt"></i>
-        <span>Claims Ledger &amp; Aging</span>
+      <button onclick="switchTab('ledger')" id="tab-btn-ledger" class="tab-btn pb-3 px-2 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i class="fa-solid fa-receipt" aria-hidden="true"></i>
+        <span>3. Claims Ledger &amp; Aging</span>
       </button>
-    </div>
+      <button onclick="switchTab('era')" id="tab-btn-era" class="tab-btn pb-3 px-2 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>
+        <span>4. 835 ERA, Appeals &amp; Patient SMS</span>
+      </button>
+      <button onclick="switchTab('crm')" id="tab-btn-crm" class="tab-btn pb-3 px-2 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i class="fa-solid fa-building-user text-emerald-600" aria-hidden="true"></i>
+        <span>5. Scraped Clinic Leads &amp; CRM</span>
+        <span id="crmCountBadge" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800 font-bold">153</span>
+      </button>
+      <button onclick="switchTab('sales')" id="tab-btn-sales" class="tab-btn pb-3 px-2 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i class="fa-solid fa-bullhorn text-indigo-600" aria-hidden="true"></i>
+        <span>6. Call Scripts, SMS, Emails &amp; ROI</span>
+      </button>
+      <button onclick="switchTab('assistant')" id="tab-btn-assistant" class="tab-btn pb-3 px-2 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-2 border-transparent text-slate-500 hover:text-slate-700">
+        <i class="fa-solid fa-shield-halved text-emerald-600" aria-hidden="true"></i>
+        <span>7. AI Coder &amp; OA Pre-Flight Assistant (Zero-Hallucination)</span>
+      </button>
+    </nav>
 
     <!-- TAB 1: Intake & Scrutiny -->
     <section id="tab-intake" class="tab-content">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <!-- Input Form -->
         <div class="lg:col-span-6 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div class="flex justify-between items-center mb-4">
+          <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
             <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
-              <i class="fa-solid fa-clipboard-user text-indigo-600"></i>
+              <i class="fa-solid fa-clipboard-user text-indigo-600" aria-hidden="true"></i>
               <span>Patient Chart &amp; Encounter Details</span>
             </h2>
-            <button onclick="loadMarkExample()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center space-x-1">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
-              <span>Load Mark Example</span>
-            </button>
+            <div class="flex space-x-2">
+              <button type="button" onclick="loadMarkExample()" class="text-xs px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded-md font-semibold flex items-center space-x-1">
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>Load Flagged APRN Example</span>
+              </button>
+              <button type="button" onclick="loadCleanSurgicalExample()" class="text-xs px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 rounded-md font-semibold flex items-center space-x-1">
+                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                <span>Load Clean 99214-25 + 17000</span>
+              </button>
+            </div>
           </div>
 
           <form id="intakeForm" onsubmit="event.preventDefault(); processEncounter();" class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Encounter ID (PCN)</label>
+                <label for="encId" class="block text-xs font-semibold text-slate-600 mb-1">Encounter ID (PCN)</label>
                 <input id="encId" type="text" value="ENC-MARK-2026" required class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono">
               </div>
               <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1">Date of Service</label>
+                <label for="dos" class="block text-xs font-semibold text-slate-600 mb-1">Date of Service</label>
                 <input id="dos" type="date" value="2026-09-28" required class="w-full text-sm px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500">
               </div>
             </div>
 
             <!-- Patient Row -->
             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">Patient</span>
+              <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">Patient &amp; Subscriber</span>
               <div class="grid grid-cols-3 gap-2">
-                <input id="patFirst" type="text" placeholder="First Name" value="MARK" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
-                <input id="patLast" type="text" placeholder="Last Name" value="JOHNSON" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
-                <input id="patDob" type="text" placeholder="DOB (YYYY-MM-DD)" value="1968-04-15" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <input id="patFirst" type="text" aria-label="Patient First Name" placeholder="First Name" value="MARK" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <input id="patLast" type="text" aria-label="Patient Last Name" placeholder="Last Name" value="JOHNSON" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <input id="patDob" type="text" aria-label="Patient Date of Birth" placeholder="DOB (YYYY-MM-DD)" value="1968-04-15" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
               </div>
               <div class="grid grid-cols-2 gap-2 mt-2">
-                <input id="patMemberId" type="text" placeholder="Insurance Member ID" value="MJ99887766" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
-                <select id="payerType" class="text-sm px-2.5 py-1.5 border rounded bg-white">
-                  <option value="MEDICARE" selected>Medicare Florida (00901)</option>
-                  <option value="MEDICAID">Medicaid Florida (77027)</option>
+                <input id="patMemberId" type="text" aria-label="Insurance Member ID" placeholder="Insurance Member ID" value="MJ99887766" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <select id="payerType" aria-label="Target Payer" class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                  <option value="MEDICARE" selected>Medicare Florida FCSO (09102)</option>
+                  <option value="MEDICAID">Medicaid Florida AHCA (77027)</option>
                   <option value="COMMERCIAL">Florida Blue (00590)</option>
                 </select>
               </div>
@@ -107,51 +135,51 @@
             <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
               <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-2">Provider &amp; Credentialing</span>
               <div class="grid grid-cols-3 gap-2">
-                <input id="provName" type="text" placeholder="Provider Name" value="DR. SARAH ORTEGA" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
-                <select id="provType" class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <input id="provName" type="text" aria-label="Provider Name" placeholder="Provider Name" value="DR. SARAH ORTEGA" required class="text-sm px-2.5 py-1.5 border rounded bg-white">
+                <select id="provType" aria-label="Provider Credential Type" class="text-sm px-2.5 py-1.5 border rounded bg-white">
                   <option value="APRN" selected>APRN / NP</option>
                   <option value="MD">MD (Physician)</option>
                   <option value="DO">DO (Osteopath)</option>
                   <option value="PA">PA (Physician Asst)</option>
                 </select>
-                <input id="provNpi" type="text" placeholder="Rendering NPI" value="1234567893" required class="text-sm px-2.5 py-1.5 border rounded bg-white font-mono">
+                <input id="provNpi" type="text" aria-label="Rendering NPI" placeholder="Rendering NPI" value="1234567893" required class="text-sm px-2.5 py-1.5 border rounded bg-white font-mono">
               </div>
               <div class="mt-2 flex flex-col space-y-1 text-xs text-slate-600">
                 <label class="flex items-center space-x-2">
                   <input id="provProtocol" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500">
-                  <span>Collaborative supervisory protocol on file (F.S. §458.348/§464.012)</span>
+                  <span>Collaborative supervisory protocol on file (F.S. &sect;458.348/&sect;464.012)</span>
                 </label>
                 <label class="flex items-center space-x-2">
                   <input id="provAutonomous" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500">
-                  <span>FL Autonomous APRN Registered (F.S. §464.0123 - Primary Care only)</span>
+                  <span>FL Autonomous APRN Registered (F.S. &sect;464.0123 - Primary Care only)</span>
                 </label>
               </div>
             </div>
 
             <!-- Clinical Note Text -->
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Clinical Note / Scanned SOAP Transcription</label>
+              <label for="clinicalNote" class="block text-xs font-semibold text-slate-600 mb-1">Clinical Note / Scanned SOAP Transcription</label>
               <textarea id="clinicalNote" rows="7" required class="w-full text-xs font-mono p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-900 text-emerald-400"></textarea>
             </div>
 
             <button type="submit" id="btnSubmitEncounter" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm shadow transition flex items-center justify-center space-x-2">
-              <i class="fa-solid fa-bolt"></i>
-              <span>Run Autonomous Pipeline</span>
+              <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+              <span>Run 6-Stage Autonomous Pipeline</span>
             </button>
           </form>
         </div>
 
         <!-- Output Panel -->
         <div class="lg:col-span-6 space-y-6">
-          <div id="resultsCard" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 min-h-[460px]">
+          <div id="resultsCard" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 min-h-[480px]">
             <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center space-x-2">
-              <i class="fa-solid fa-stethoscope text-indigo-600"></i>
-              <span>Pipeline &amp; Scrutiny Verdict</span>
+              <i class="fa-solid fa-stethoscope text-indigo-600" aria-hidden="true"></i>
+              <span>Pipeline, Coding &amp; 8-Tier Scrutiny Verdict</span>
             </h3>
             
             <div id="resultsPlaceholder" class="flex flex-col items-center justify-center h-80 text-slate-400">
-              <i class="fa-solid fa-arrow-left text-4xl mb-3 animate-pulse"></i>
-              <p class="text-sm">Click "Load Mark Example" and hit Run to evaluate</p>
+              <i class="fa-solid fa-arrow-left text-4xl mb-3 animate-pulse" aria-hidden="true"></i>
+              <p class="text-sm">Select an encounter preset on the left and click Run Pipeline</p>
             </div>
 
             <div id="resultsContent" class="hidden space-y-4">
@@ -165,34 +193,45 @@
               </div>
 
               <!-- Metrics Grid -->
-              <div class="grid grid-cols-3 gap-3 text-center">
-                <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+              <div class="grid grid-cols-4 gap-2 text-center">
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                  <span class="text-xs text-slate-500 block">Total Billed</span>
+                  <span id="totalBilledBadge" class="text-sm font-bold text-emerald-700">$175.00</span>
+                </div>
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                   <span class="text-xs text-slate-500 block">Timely Filing</span>
-                  <span id="timelyDays" class="text-base font-bold text-slate-800">363 Days</span>
+                  <span id="timelyDays" class="text-sm font-bold text-slate-800">363 Days</span>
                 </div>
-                <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                   <span class="text-xs text-slate-500 block">POS Detected</span>
-                  <span id="posDetected" class="text-base font-bold text-indigo-600">11 (Office)</span>
+                  <span id="posDetected" class="text-sm font-bold text-indigo-600">11 (Office)</span>
                 </div>
-                <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
                   <span class="text-xs text-slate-500 block">Clearinghouse</span>
-                  <span id="clearinghouseBadge" class="text-base font-bold text-slate-800">Office Ally</span>
+                  <span id="clearinghouseBadge" class="text-sm font-bold text-slate-800">Office Ally</span>
                 </div>
+              </div>
+
+              <!-- Extracted Coding Summary -->
+              <div id="codingSummaryBox" class="p-3 bg-indigo-50/60 border border-indigo-100 rounded-lg text-xs space-y-1">
+                <div class="font-bold text-indigo-950">AI Extracted ICD-10-CM &amp; CPT Service Lines:</div>
+                <div id="codedDxList" class="text-slate-700 font-mono"></div>
+                <div id="codedCptList" class="text-indigo-800 font-mono font-semibold"></div>
               </div>
 
               <!-- Scrutiny Issues List -->
               <div>
-                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Scrutiny Engine Findings</h5>
+                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">8-Tier Scrutiny Engine Findings</h5>
                 <div id="issuesList" class="space-y-2"></div>
               </div>
 
               <!-- Quick Action Button -->
-              <div id="quickActionArea" class="pt-2"></div>
+              <div id="quickActionArea" class="pt-1"></div>
 
               <!-- Execution Log -->
               <div>
                 <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Pipeline Execution Trail</h5>
-                <pre id="pipelineLog" class="p-3 bg-slate-900 text-slate-300 text-xs rounded-lg font-mono max-h-40 overflow-y-auto"></pre>
+                <pre id="pipelineLog" class="p-3 bg-slate-900 text-slate-300 text-xs rounded-lg font-mono max-h-36 overflow-y-auto"></pre>
               </div>
             </div>
           </div>
@@ -209,7 +248,7 @@
             <p class="text-xs text-slate-500">Claims flagged by 8-Tier Scrutiny or Florida APRN Scope rules requiring medical biller authorization</p>
           </div>
           <button onclick="loadQueue()" class="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg">
-            <i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh Queue
+            <i class="fa-solid fa-arrows-rotate mr-1" aria-hidden="true"></i> Refresh Queue
           </button>
         </div>
 
@@ -241,14 +280,14 @@
         <div class="flex justify-between items-center mb-6">
           <div>
             <h2 class="text-lg font-bold text-slate-900">Claim Transmission Ledger &amp; Aging</h2>
-            <p class="text-xs text-slate-500">Provable lifecycle status: SUBMITTED &rarr; ACKED_999 &rarr; PENDING_277CA &rarr; PAID/DENIED</p>
+            <p class="text-xs text-slate-500">Provable lifecycle status: SUBMITTED &rarr; ACKED_999 &rarr; ACCEPTED_277CA &rarr; PAID/DENIED</p>
           </div>
           <button onclick="loadAging()" class="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg">
-            <i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh Aging
+            <i class="fa-solid fa-arrows-rotate mr-1" aria-hidden="true"></i> Refresh Aging
           </button>
         </div>
 
-        <div id="agingCards" class="grid grid-cols-4 gap-4 mb-8"></div>
+        <div id="agingCards" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"></div>
 
         <h3 class="text-sm font-bold text-slate-800 mb-3">Claims Requiring Follow-Up</h3>
         <div class="overflow-x-auto">
@@ -268,10 +307,439 @@
         </div>
       </div>
     </section>
+
+    <!-- TAB 4: 835 ERA Remittance, Auto-Appeals & Patient SMS -->
+    <section id="tab-era" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <h2 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+            <i class="fa-solid fa-file-Waveform text-indigo-600" aria-hidden="true"></i>
+            <span>Ingest ANSI X12 835 Electronic Remittance Advice</span>
+          </h2>
+          <p class="text-xs text-slate-500">Paste an 835 ERA from Office Ally to reconcile the ledger, auto-draft formal CARC/RARC clinical appeals, and generate Patient Responsibility SMS checkout statements.</p>
+          <div>
+            <label for="raw835Input" class="block text-xs font-semibold text-slate-600 mb-1">Raw X12 835 EDI Payload</label>
+            <textarea id="raw835Input" rows="11" class="w-full text-xs font-mono p-3 border rounded-lg bg-slate-900 text-amber-300">ISA*00*          *00*          *ZZ*OFFICEALLY     *ZZ*MAGNOLIA_HEALTH*260925*1400*^*00501*000000001*0*T*:~
+GS*HP*OFFICEALLY*MAGNOLIA_HEALTH*20260925*1400*1*X*005010X221A1~
+ST*835*0001*005010X221A1~
+BPR*I*130.00*C*ACH*CTX*01*999999992*DA*12345678*1234567890**01*999999991*DA*98765432*20260925~
+TRN*1*EFT9988776655*1999999992~
+N1*PR*FLORIDA BLUE (BCBS FL)~
+CLP*ENC-CLEAN-2026*1*295.00*130.00*45.00*MC*CLAIM99881122~
+CAS*CO*97*120.00*1~
+CAS*PR*1*45.00*1~
+SE*9*0001~
+GE*1*1~
+IEA*1*000000001~</textarea>
+          </div>
+          <button type="button" onclick="ingest835Remittance()" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm shadow">
+            <i class="fa-solid fa-wand-magic-sparkles mr-1" aria-hidden="true"></i> Parse 835, Generate Appeal &amp; Patient SMS Link
+          </button>
+        </div>
+
+        <div class="lg:col-span-7 space-y-6">
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <h3 class="text-base font-bold text-slate-900">Automated Remittance &amp; Appeal Output</h3>
+            <div id="eraOutputContainer" class="text-xs text-slate-500">
+              Click "Parse 835, Generate Appeal &amp; Patient SMS Link" to view automated CARC 97 appeal letter and patient deductible SMS statement.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Scraped Clinic Leads & CRM -->
+    <section id="tab-crm" class="tab-content hidden">
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+        <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-database text-emerald-600" aria-hidden="true"></i>
+              <span>Live CMS NPPES Medical Clinic Lead Scraper &amp; Outbound CRM</span>
+            </h2>
+            <p class="text-xs text-slate-500">Real verified medical clinics, NPIs, decision makers, direct phones, and recoverable revenue upside scraped from the U.S. HHS NPPES Registry</p>
+          </div>
+          <div class="flex items-center space-x-4">
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">Total Recoverable Pipeline</span>
+              <span id="crmTotalPipeline" class="text-lg font-extrabold text-emerald-600">$51,474,530/yr</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Scraper Control Bar -->
+        <div class="p-4 bg-indigo-950 text-white rounded-xl flex flex-wrap items-end gap-3">
+          <div class="flex-1 min-w-[180px]">
+            <label for="scrapeSpecialty" class="block text-xs text-indigo-200 mb-1">Target Specialty (NPPES Taxonomy)</label>
+            <select id="scrapeSpecialty" class="w-full text-xs px-3 py-2 rounded bg-indigo-900 border border-indigo-700 text-white">
+              <option value="Family Medicine">Family Medicine (Primary Care)</option>
+              <option value="Nurse Practitioner">Nurse Practitioner / Autonomous APRN</option>
+              <option value="Physical Medicine & Rehabilitation">Physical Medicine &amp; Rehab (PM&amp;R)</option>
+              <option value="Orthopaedic Surgery">Orthopaedic Surgery</option>
+              <option value="Dermatology">Dermatology</option>
+              <option value="Internal Medicine">Internal Medicine</option>
+              <option value="Physical Therapist">Physical Therapy</option>
+            </select>
+          </div>
+          <div class="w-36">
+            <label for="scrapeCity" class="block text-xs text-indigo-200 mb-1">City</label>
+            <input id="scrapeCity" type="text" value="Miami" class="w-full text-xs px-3 py-2 rounded bg-indigo-900 border border-indigo-700 text-white">
+          </div>
+          <div class="w-20">
+            <label for="scrapeState" class="block text-xs text-indigo-200 mb-1">State</label>
+            <input id="scrapeState" type="text" value="FL" class="w-full text-xs px-3 py-2 rounded bg-indigo-900 border border-indigo-700 text-white uppercase">
+          </div>
+          <button type="button" id="btnLiveScrape" onclick="scrapeMoreLeads()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center space-x-1">
+            <i class="fa-solid fa-satellite-dish" aria-hidden="true"></i>
+            <span>Scrape Live NPPES Clinics</span>
+          </button>
+          <div class="w-48 ml-auto">
+            <label for="crmSearch" class="block text-xs text-indigo-200 mb-1">Filter CRM Leads</label>
+            <input id="crmSearch" type="text" oninput="loadCrmLeads()" placeholder="Search clinic, owner, city, NPI..." class="w-full text-xs px-3 py-2 rounded bg-indigo-900 border border-indigo-700 text-white">
+          </div>
+        </div>
+
+        <!-- Leads Table -->
+        <div class="overflow-x-auto max-h-[540px] overflow-y-auto border rounded-lg">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-700 uppercase sticky top-0 border-b">
+              <tr>
+                <th class="py-3 px-3">Clinic / Organization &amp; NPI</th>
+                <th class="py-3 px-3">Decision Maker / Owner</th>
+                <th class="py-3 px-3">Specialty</th>
+                <th class="py-3 px-3">City &amp; Direct Phone</th>
+                <th class="py-3 px-3">Est. Annual Upside</th>
+                <th class="py-3 px-3">CRM Stage</th>
+                <th class="py-3 px-3 text-right">Sales Outreach</th>
+              </tr>
+            </thead>
+            <tbody id="crmLeadsBody" class="divide-y divide-slate-100">
+              <tr><td colspan="7" class="text-center py-8 text-slate-400">Loading 150+ real medical clinics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: Sales Scripts, SMS, Cold Emails & ROI Calculator -->
+    <section id="tab-sales" class="tab-content hidden space-y-8">
+      <!-- Top Row: Interactive CFO ROI Calculator -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex flex-wrap justify-between items-center mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-calculator text-indigo-600" aria-hidden="true"></i>
+              <span>Interactive Live-Call Clinic ROI &amp; Revenue Recovery Calculator</span>
+            </h2>
+            <p class="text-xs text-slate-500">Use live on Zoom/phone calls with clinic owners to prove immediate financial payback</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-5 grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <label for="roiClaims" class="block text-xs font-semibold text-slate-600 mb-1">Monthly Encounters</label>
+              <input id="roiClaims" type="number" value="750" oninput="runRoiCalculator()" class="w-full text-sm px-3 py-1.5 border rounded bg-white font-bold">
+            </div>
+            <div>
+              <label for="roiAvgClaim" class="block text-xs font-semibold text-slate-600 mb-1">Avg Claim Billed ($)</label>
+              <input id="roiAvgClaim" type="number" value="195" oninput="runRoiCalculator()" class="w-full text-sm px-3 py-1.5 border rounded bg-white font-bold">
+            </div>
+            <div>
+              <label for="roiBillerPct" class="block text-xs font-semibold text-slate-600 mb-1">Current Biller Fee (%)</label>
+              <input id="roiBillerPct" type="number" step="0.5" value="6.0" oninput="runRoiCalculator()" class="w-full text-sm px-3 py-1.5 border rounded bg-white font-bold">
+            </div>
+            <div>
+              <label for="roiDenialPct" class="block text-xs font-semibold text-slate-600 mb-1">Current Denial Rate (%)</label>
+              <input id="roiDenialPct" type="number" step="0.5" value="12.0" oninput="runRoiCalculator()" class="w-full text-sm px-3 py-1.5 border rounded bg-white font-bold">
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <span class="text-xs text-emerald-800 font-semibold block">Total Annual Net Gain</span>
+              <span id="roiTotalAnnual" class="text-xl font-extrabold text-emerald-700 mt-1 block">$350,861/yr</span>
+              <span id="roiMonthlyGain" class="text-xs text-emerald-600">+$29,238/mo cashflow</span>
+            </div>
+            <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+              <span class="text-xs text-indigo-800 font-semibold block">Prevented Denials</span>
+              <span id="roiDenialsRecovered" class="text-lg font-bold text-indigo-900 mt-1 block">$164,268/yr</span>
+              <span class="text-xs text-indigo-600">CARC 97/50/29/18</span>
+            </div>
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <span class="text-xs text-amber-900 font-semibold block">E/M MDM Uplift</span>
+              <span id="roiEmUplift" class="text-lg font-bold text-amber-900 mt-1 block">$118,800/yr</span>
+              <span class="text-xs text-amber-700">99213 &rarr; 99214 MDM</span>
+            </div>
+            <div class="p-4 bg-slate-900 text-white rounded-xl">
+              <span class="text-xs text-indigo-300 font-semibold block">ROI Multiple &amp; Payback</span>
+              <span id="roiMultiple" class="text-xl font-extrabold text-emerald-400 mt-1 block">10.4x ROI</span>
+              <span id="roiPayback" class="text-xs text-slate-300">Payback in 35 days</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Personalized Outbound Campaign Generator -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+        <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600">Active Target Prospect</span>
+            <h3 id="campaignTargetTitle" class="text-lg font-bold text-slate-900">Select any clinic in Tab 5 or use default prospect below</h3>
+            <p id="campaignTargetSub" class="text-xs text-slate-500"></p>
+          </div>
+          <button type="button" onclick="switchTab('crm')" class="text-xs px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200">
+            <i class="fa-solid fa-magnifying-glass mr-1" aria-hidden="true"></i> Choose Different Clinic from CRM (153+)
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left Column: Cold Call Scripts & Objection Battlecards -->
+          <div class="lg:col-span-6 space-y-4">
+            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+              <i class="fa-solid fa-phone-volume text-emerald-600" aria-hidden="true"></i>
+              <span>Cold Call Script &amp; Objection Battlecards</span>
+            </h4>
+            <div id="callScriptsContainer" class="space-y-3 text-xs"></div>
+          </div>
+
+          <!-- Right Column: SMS Texts & 5-Touch Cold Emails -->
+          <div class="lg:col-span-6 space-y-4">
+            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
+              <i class="fa-solid fa-comment-sms text-indigo-600" aria-hidden="true"></i>
+              <span>4-Step SMS / WhatsApp Sequence</span>
+            </h4>
+            <div id="smsContainer" class="space-y-2 text-xs"></div>
+
+            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider pt-4 flex items-center space-x-2">
+              <i class="fa-solid fa-envelope-open-text text-amber-600" aria-hidden="true"></i>
+              <span>5-Touch Cold &amp; Nurture Email Sequence</span>
+            </h4>
+            <div id="emailContainer" class="space-y-3 text-xs max-h-[500px] overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 7: AI Coder & OA Pre-Flight Assistant (Zero-Hallucination) -->
+    <section id="tab-assistant" class="tab-content hidden space-y-6">
+      <!-- Top Banner -->
+      <div class="bg-indigo-950 text-white p-5 rounded-xl shadow border border-indigo-800 flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h2 class="text-lg font-bold flex items-center space-x-2">
+            <i class="fa-solid fa-shield-halved text-emerald-400" aria-hidden="true"></i>
+            <span>AI Coder &amp; Office Ally Pre-Flight Assistant (Zero-Hallucination Architecture)</span>
+          </h2>
+          <p class="text-xs text-indigo-200 mt-1">
+            Strictly grounded in verified 2026 AMA CPT, FY2026 CMS/CDC ICD-10-CM, FDA 11-Digit NDC, CMS/FCSO Medicare (09102), FL Medicaid/QMB (77027), and Office Ally 5010A1 Companion Rules &bull; Refuses unverified guesses (<code class="text-amber-300">ABSTAINED_UNVERIFIED</code>).
+          </p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+          100% Deterministic &amp; Citation-Backed
+        </span>
+      </div>
+
+      <!-- Row 1: Standards Q&A + Pre-Submission Claim Code Check -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Panel A: Standards Q&A -->
+        <div class="lg:col-span-6 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-book-medical text-indigo-600" aria-hidden="true"></i>
+              <span>1. Citation-Grounded Coding &amp; Regulatory Q&amp;A</span>
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">Ask about CPT/E&amp;M rules, ICD-10-CM billability, modifiers, QMB balance-billing law, FDA NDCs, or Office Ally IDs.</p>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" onclick="setAssistantPreset('How should consulting PM&R physicians bill SNF consultations (99305 vs 99309), Modifier AI, and POS 31 vs POS 32?')" class="text-[11px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-md font-semibold">SNF Consult 99305 &amp; POS 31/32</button>
+            <button type="button" onclick="setAssistantPreset('What is the federal QMB balance billing rule and Florida Medicaid 77027 crossover timely filing limit?')" class="text-[11px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-md font-semibold">QMB &amp; FL Medicaid 77027</button>
+            <button type="button" onclick="setAssistantPreset('Is ICD-10-CM E11 billable or does it require a specific leaf code?')" class="text-[11px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-md font-semibold">ICD-10 E11 Leaf Check</button>
+            <button type="button" onclick="setAssistantPreset('Convert FDA NDC 0009-0047-22 for Loop 2410 billing')" class="text-[11px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-md font-semibold">NDC 5-4-2 Loop 2410</button>
+            <button type="button" onclick="setAssistantPreset('What are Office Ally receiver ID 330897513, payer IDs, and SFTP/SOAP channels?')" class="text-[11px] px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-md font-semibold">Office Ally Payer IDs</button>
+            <button type="button" onclick="setAssistantPreset('What is the exact dollar fee schedule reimbursement and wRVU value for 99305?')" class="text-[11px] px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md font-semibold">Test Abstain Guard (RVU/$)</button>
+          </div>
+
+          <form onsubmit="event.preventDefault(); askCodingAssistant();" class="space-y-3">
+            <div>
+              <label for="assistantQueryInput" class="block text-xs font-semibold text-slate-600 mb-1">Coder / Biller Question</label>
+              <textarea id="assistantQueryInput" rows="3" required class="w-full text-xs p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-slate-50" placeholder="e.g., Is M54.16 billable, or what are SNF consultation rules for 99305 without Modifier AI?">How should consulting PM&amp;R physicians bill SNF consultations (99305 vs 99309), Modifier AI, and POS 31 vs POS 32?</textarea>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <label class="flex items-center space-x-2 text-xs text-slate-600">
+                <input id="assistantOpenFdaLive" type="checkbox" class="rounded text-indigo-600">
+                <span>Query live openFDA NDC directory when NDC present</span>
+              </label>
+              <button type="submit" id="btnAskAssistant" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i>
+                <span>Ask Citation-Grounded Assistant</span>
+              </button>
+            </div>
+          </form>
+
+          <div id="assistantAskOutput" class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 min-h-[180px]">
+            Select a preset chip above or type a coding/billing question to view verified guidelines and statutory citations.
+          </div>
+        </div>
+
+        <!-- Panel B: Pre-Submission Code Checker -->
+        <div class="lg:col-span-6 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <div class="flex flex-wrap justify-between items-start gap-2">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <i class="fa-solid fa-list-check text-emerald-600" aria-hidden="true"></i>
+                <span>2. Deterministic Pre-Submission Claim Code Checker</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Audits CPT/HCPCS, ICD-10 leaf specificity, POS, Modifiers, NCCI PTP/MUE, FCSO LCDs &amp; Loop 2410 NDCs.</p>
+            </div>
+            <div class="flex gap-1.5">
+              <button type="button" onclick="loadCodeCheckPreset('snf_clean')" class="text-[11px] px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded font-semibold">Clean SNF 99305</button>
+              <button type="button" onclick="loadCodeCheckPreset('ndc_jcode')" class="text-[11px] px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded font-semibold">J1100 + NDC</button>
+              <button type="button" onclick="loadCodeCheckPreset('error_demo')" class="text-[11px] px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded font-semibold">Catch Errors</button>
+            </div>
+          </div>
+
+          <form onsubmit="event.preventDefault(); runAssistantCodeCheck();" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="ccCptInput" class="block text-xs font-semibold text-slate-600 mb-1">CPT / HCPCS (comma-sep, e.g. 99214-25, 20610)</label>
+                <input id="ccCptInput" type="text" value="99305" required class="w-full text-xs px-3 py-2 border rounded-lg font-mono">
+              </div>
+              <div>
+                <label for="ccIcdInput" class="block text-xs font-semibold text-slate-600 mb-1">ICD-10-CM Codes (comma-sep)</label>
+                <input id="ccIcdInput" type="text" value="I69.354, I10, E11.9" required class="w-full text-xs px-3 py-2 border rounded-lg font-mono">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label for="ccPosInput" class="block text-xs font-semibold text-slate-600 mb-1">Place of Service</label>
+                <select id="ccPosInput" class="w-full text-xs px-2.5 py-2 border rounded-lg bg-white">
+                  <option value="31" selected>31 - Skilled Nursing Facility</option>
+                  <option value="32">32 - Nursing Facility</option>
+                  <option value="11">11 - Office</option>
+                  <option value="10">10 - Telehealth (Patient Home)</option>
+                  <option value="02">02 - Telehealth (Facility)</option>
+                  <option value="12">12 - Patient Home</option>
+                  <option value="13">13 - Assisted Living Facility</option>
+                  <option value="21">21 - Inpatient Hospital</option>
+                </select>
+              </div>
+              <div>
+                <label for="ccPayerInput" class="block text-xs font-semibold text-slate-600 mb-1">Payer / Coverage</label>
+                <select id="ccPayerInput" class="w-full text-xs px-2.5 py-2 border rounded-lg bg-white">
+                  <option value="MEDICARE" selected>Medicare FL (09102)</option>
+                  <option value="QMB">Medicare + QMB Medicaid (77027)</option>
+                  <option value="MEDICAID">FL Medicaid AHCA (77027)</option>
+                  <option value="COMMERCIAL">Commercial / MA Plan</option>
+                </select>
+              </div>
+              <div>
+                <label for="ccProvInput" class="block text-xs font-semibold text-slate-600 mb-1">Provider Credential</label>
+                <select id="ccProvInput" class="w-full text-xs px-2.5 py-2 border rounded-lg bg-white">
+                  <option value="MD" selected>MD / DO (Physician)</option>
+                  <option value="APRN">APRN / NP</option>
+                  <option value="PA">PA</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <div>
+                <label for="ccNdcCode" class="block text-[11px] font-semibold text-slate-600 mb-1">Optional FDA NDC (5-4-2)</label>
+                <input id="ccNdcCode" type="text" placeholder="e.g. 0009-0047-22" class="w-full text-xs px-2.5 py-1.5 border rounded bg-white font-mono">
+              </div>
+              <div>
+                <label for="ccNdcQty" class="block text-[11px] font-semibold text-slate-600 mb-1">NDC Qty</label>
+                <input id="ccNdcQty" type="number" step="0.01" value="1" class="w-full text-xs px-2.5 py-1.5 border rounded bg-white font-mono">
+              </div>
+              <div>
+                <label for="ccNdcUnit" class="block text-[11px] font-semibold text-slate-600 mb-1">NDC X12 Unit</label>
+                <select id="ccNdcUnit" class="w-full text-xs px-2.5 py-1.5 border rounded bg-white font-mono">
+                  <option value="ML">ML (Milliliter)</option>
+                  <option value="ME">ME (Milligram)</option>
+                  <option value="UN">UN (Unit)</option>
+                  <option value="GR">GR (Gram)</option>
+                  <option value="F2">F2 (Intl Unit)</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" id="btnRunCodeCheck" class="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs shadow flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-check-double" aria-hidden="true"></i>
+              <span>Run Multi-Pillar Claim Code Verification</span>
+            </button>
+          </form>
+
+          <div id="assistantCodeCheckOutput" class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 min-h-[180px]">
+            Click "Run Multi-Pillar Claim Code Verification" to audit ICD-10 leaf specificity, POS compatibility, NCCI bundling, LCDs, and QMB rules.
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Office Ally 5010A1 Companion Guide Pre-Flight Validator -->
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <div class="flex flex-wrap justify-between items-center gap-3 border-b pb-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-server text-indigo-600" aria-hidden="true"></i>
+              <span>3. Office Ally 5010A1 Companion Guide Pre-Flight &amp; 3-Channel Readiness Validator</span>
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Audits any <code class="font-mono">.837</code> payload against all 8 Office Ally &amp; CMS 5010A1 front-end reject suites (ISA08/GS03=330897513, OATEST routing guard, 2010AA 9-digit ZIP+4, Loop 2310C Box 32 SNF, Box 18 DTP*435, strict CMS MBI, OA Payer List, and <code class="font-mono">pyx12</code> X12 schema).
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="loadOaPreflightSample('clean')" class="text-xs px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-semibold">Load Clean SNF 837P (OATEST)</button>
+            <button type="button" onclick="loadOaPreflightSample('draft_errors')" class="text-xs px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg font-semibold">Load Draft w/ Rejections</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-5 space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="oaFilenameInput" class="block text-xs font-semibold text-slate-600 mb-1">Target Upload Filename</label>
+                <input id="oaFilenameInput" type="text" value="OATEST_SNF_BATCH_NOV26_0.837" class="w-full text-xs px-3 py-2 border rounded-lg font-mono">
+              </div>
+              <div>
+                <label for="oaVerifiedSubInput" class="block text-xs font-semibold text-slate-600 mb-1">Verified OA Submitter ID</label>
+                <input id="oaVerifiedSubInput" type="text" value="SFLREHAB01" class="w-full text-xs px-3 py-2 border rounded-lg font-mono">
+              </div>
+            </div>
+            <div>
+              <label for="oaEdiInput" class="block text-xs font-semibold text-slate-600 mb-1">Raw ANSI X12 837P (005010X222A1) Batch / Claim Payload</label>
+              <textarea id="oaEdiInput" rows="11" class="w-full text-[11px] font-mono p-3 border rounded-lg bg-slate-900 text-emerald-400"></textarea>
+            </div>
+            <div class="flex items-center justify-between">
+              <label class="flex items-center space-x-2 text-xs text-slate-600">
+                <input id="oaRunPyx12" type="checkbox" checked class="rounded text-indigo-600">
+                <span>Run full <code class="font-mono">pyx12</code> 5010A1 schema validation</span>
+              </label>
+              <button type="button" id="btnRunOaPreflight" onclick="runOaPreflightCheck()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs shadow flex items-center space-x-1.5">
+                <i class="fa-solid fa-plane-departure" aria-hidden="true"></i>
+                <span>Validate 837P &amp; Channels</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7">
+            <div id="oaPreflightOutput" class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 min-h-[300px]">
+              Click "Validate 837P &amp; Channels" to run all 8 Office Ally Companion Guide &amp; CMS 5010A1 front-end checks.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
-    const API_BASE = window.location.origin;
+    const APP_PREFIX = window.location.pathname.startsWith('/billing-ai') ? '/billing-ai' : '';
+    const API_BASE = window.location.origin + APP_PREFIX;
+    if (APP_PREFIX) {
+      const backLink = document.getElementById('backToAimsLink');
+      if (backLink) backLink.classList.remove('hidden');
+    }
 
     function getApiKey() {
       return document.getElementById('apiKeyInput').value.trim();
@@ -290,6 +758,15 @@
 
       if (name === 'queue') loadQueue();
       if (name === 'ledger') loadAging();
+      if (name === 'crm') loadCrmLeads();
+      if (name === 'sales') {
+        runRoiCalculator();
+        if (!window._campaignLoaded) generateCampaignForLead(null);
+      }
+      if (name === 'assistant' && !window._oaSampleLoaded) {
+        window._oaSampleLoaded = true;
+        loadOaPreflightSample('clean');
+      }
     }
 
     function loadMarkExample() {
@@ -302,7 +779,7 @@
       document.getElementById('provName').value = "DR. SARAH ORTEGA";
       document.getElementById('provType').value = "APRN";
       document.getElementById('provNpi').value = "1234567893";
-      document.getElementById('provProtocol').checked = false; // Default unchecked to demonstrate Tier 2 scrutiny!
+      document.getElementById('provProtocol').checked = false;
       document.getElementById('provAutonomous').checked = false;
       document.getElementById('clinicalNote').value = 
 `Patient: MARK JOHNSON  DOB: 04/15/1968
@@ -318,6 +795,32 @@ CPT: 99214
 
 Dr. Sarah Ortega, APRN   NPI: 1234567893
 Dr. James Rivera, MD     NPI: 9876543210`;
+    }
+
+    function loadCleanSurgicalExample() {
+      document.getElementById('encId').value = "CLEAN-" + Math.floor(1000 + Math.random() * 9000);
+      document.getElementById('dos').value = "2026-09-28";
+      document.getElementById('patFirst').value = "ELENA";
+      document.getElementById('patLast').value = "ROSTOVA";
+      document.getElementById('patDob').value = "1972-11-08";
+      document.getElementById('patMemberId').value = "FLB99881122";
+      document.getElementById('payerType').value = "COMMERCIAL";
+      document.getElementById('provName').value = "DR. JAMES RIVERA";
+      document.getElementById('provType').value = "MD";
+      document.getElementById('provNpi').value = "9876543210";
+      document.getElementById('provProtocol').checked = true;
+      document.getElementById('provAutonomous').checked = true;
+      document.getElementById('clinicalNote').value =
+`Patient: ELENA ROSTOVA  DOB: 11/08/1972
+Date of Service: 09/28/2026
+Place of Service: Office (POS 11)
+
+Chief Complaint: Follow-up Type 2 Diabetes and hypertension; rough scaly lesion on forearm.
+HPI: Patient presents for chronic management of T2DM and HTN. Also evaluated for premalignant forearm lesion.
+Assessment & Plan:
+1. Type 2 Diabetes Mellitus (E11.9) & Essential Hypertension (I10): Refilled Metformin 500mg BID and Lisinopril 10mg.
+2. Actinic Keratosis (L57.0): Performed liquid nitrogen cryosurgery destruction on forearm lesion today.
+Total face-to-face time: 35 minutes.`;
     }
 
     async function processEncounter() {
@@ -347,8 +850,8 @@ Dr. James Rivera, MD     NPI: 9876543210`;
           fl_autonomous_registered: document.getElementById('provAutonomous').checked
         },
         payer: {
-          payer_id: "00901",
-          name: "Medicare Florida",
+          payer_id: document.getElementById('payerType').value === "COMMERCIAL" ? "00590" : (document.getElementById('payerType').value === "MEDICAID" ? "77027" : "09102"),
+          name: document.getElementById('payerType').value === "COMMERCIAL" ? "Florida Blue" : (document.getElementById('payerType').value === "MEDICAID" ? "Florida Medicaid" : "Medicare Florida (First Coast)"),
           type: document.getElementById('payerType').value
         }
       };
@@ -370,18 +873,8 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         alert("Pipeline error: " + err.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-bolt mr-2"></i> Run Autonomous Pipeline`;
+        btn.innerHTML = `<i class="fa-solid fa-bolt mr-2"></i> Run 6-Stage Autonomous Pipeline`;
       }
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
     }
 
     function renderResults(res) {
@@ -394,6 +887,20 @@ Dr. James Rivera, MD     NPI: 9876543210`;
       const desc = document.getElementById('statusDesc');
       const conf = document.getElementById('confidenceBadge');
       const quickActionArea = document.getElementById('quickActionArea');
+
+      document.getElementById('totalBilledBadge').textContent = `$${(res.total_billed || 0).toFixed(2)}`;
+      if (res.timely_filing && res.timely_filing.days_remaining !== undefined) {
+        document.getElementById('timelyDays').textContent = `${res.timely_filing.days_remaining}d left`;
+      }
+      if (res.place_of_service) {
+        document.getElementById('posDetected').textContent = `POS ${res.place_of_service}`;
+      }
+
+      // Render extracted ICD-10 & CPT codes
+      const dxList = (res.diagnosis_codes || []).map(d => `[Ptr ${d.pointer}] ${d.code} (${d.description})`).join(' | ') || 'None';
+      const cptList = (res.cpt_codes || []).map(c => `CPT ${c.code}${c.modifiers && c.modifiers.length ? '-' + c.modifiers.join('-') : ''} ($${c.charge}) -> DxPtr ${JSON.stringify(c.dx_pointers)}`).join(' | ') || 'None';
+      document.getElementById('codedDxList').textContent = `ICD-10: ${dxList}`;
+      document.getElementById('codedCptList').textContent = `Procedures: ${cptList}`;
 
       if (isFlagged) {
         banner.className = "p-4 rounded-lg flex items-center justify-between badge-flag border border-amber-300";
@@ -435,9 +942,14 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         conf.className = "text-xs px-2.5 py-1 rounded font-bold bg-emerald-200 text-emerald-900";
         conf.innerText = `Confidence: 100%`;
         quickActionArea.innerHTML = "";
+        if (res.x12_837_snippet) {
+          const pre = document.createElement('pre');
+          pre.className = "p-2.5 bg-slate-900 text-emerald-400 text-[11px] rounded-lg font-mono overflow-x-auto";
+          pre.textContent = res.x12_837_snippet.join('\n');
+          quickActionArea.appendChild(pre);
+        }
       }
 
-      // Populate issues safely
       const issuesDiv = document.getElementById('issuesList');
       issuesDiv.innerHTML = "";
       if (res.scrutiny_issues && res.scrutiny_issues.length > 0) {
@@ -454,12 +966,11 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         });
       } else {
         const p = document.createElement('p');
-        p.className = "text-xs text-emerald-700 bg-emerald-50 p-2 rounded";
-        p.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> 8-Tier Scrutiny Passed Cleanly.`;
+        p.className = "text-xs text-emerald-700 bg-emerald-50 p-2 rounded font-semibold";
+        p.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> All 8 Clinical &amp; Regulatory Scrutiny Tiers Passed Cleanly.`;
         issuesDiv.appendChild(p);
       }
 
-      // Log
       document.getElementById('pipelineLog').textContent = (res.pipeline_log || []).join('\n');
     }
 
@@ -576,7 +1087,6 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         });
         const data = await resp.json();
         
-        // Cards
         const cardsDiv = document.getElementById('agingCards');
         cardsDiv.innerHTML = "";
         const byStatus = data.by_status || {};
@@ -598,7 +1108,6 @@ Dr. James Rivera, MD     NPI: 9876543210`;
           cardsDiv.appendChild(card);
         }
 
-        // Table
         const tbody = document.getElementById('agingTableBody');
         tbody.innerHTML = "";
         const needsFollowUp = data.needs_follow_up || {};
@@ -649,6 +1158,723 @@ Dr. James Rivera, MD     NPI: 9876543210`;
         }
       } catch (err) {
         console.error("Aging load err", err);
+      }
+    }
+
+    // ---------------- TAB 4: 835 ERA Remittance & Patient Balance ----------------
+    async function ingest835Remittance() {
+      const raw835 = document.getElementById('raw835Input').value;
+      const container = document.getElementById('eraOutputContainer');
+      container.innerHTML = `<p class="text-indigo-600 font-semibold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Parsing 835 ERA &amp; generating clinical appeal packet...</p>`;
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/remittance/ingest-835`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({
+            raw_835_edi: raw835,
+            clinical_note_summary: {
+              chief_complaint: "Type 2 Diabetes, Hypertension, and Actinic Keratosis lesion",
+              assessment_and_plan: "Liquid nitrogen cryosurgery (CPT 17000) performed alongside distinct chronic E/M management (99214-25)."
+            }
+          })
+        });
+        const data = await resp.json();
+        container.innerHTML = "";
+
+        // 1. Appeals generated
+        if (data.appeals_generated && data.appeals_generated.length > 0) {
+          data.appeals_generated.forEach(ap => {
+            const box = document.createElement('div');
+            box.className = "p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4";
+            const h4 = document.createElement('h4');
+            h4.className = "font-bold text-amber-950 text-sm mb-2";
+            h4.textContent = `Auto-Generated Formal Appeal Letter (${ap.appeal_id} — CARC ${ap.carc_code})`;
+            const pre = document.createElement('pre');
+            pre.className = "p-3 bg-white border rounded text-xs font-mono whitespace-pre-wrap text-slate-800";
+            pre.textContent = ap.formal_letter_text;
+            box.appendChild(h4);
+            box.appendChild(pre);
+            container.appendChild(box);
+          });
+        }
+
+        // 2. Patient Balance SMS Statements
+        if (data.patient_balance_statements && data.patient_balance_statements.length > 0) {
+          data.patient_balance_statements.forEach(st => {
+            const box = document.createElement('div');
+            box.className = "p-4 bg-emerald-50 border border-emerald-200 rounded-xl";
+            const h4 = document.createElement('h4');
+            h4.className = "font-bold text-emerald-950 text-sm mb-1";
+            h4.textContent = `Post-835 Patient Balance Statement (${st.statement_id}) — Balance Due: $${st.patient_responsibility.toFixed(2)}`;
+            const pSms = document.createElement('p');
+            pSms.className = "p-3 bg-white border rounded text-xs font-mono text-slate-800 mt-2";
+            pSms.textContent = st.sms_message;
+            box.appendChild(h4);
+            box.appendChild(pSms);
+            container.appendChild(box);
+          });
+        }
+      } catch (err) {
+        container.textContent = "Error parsing 835: " + err.message;
+      }
+    }
+
+    // ---------------- TAB 5: Live Scraped Leads & CRM ----------------
+    async function loadCrmLeads() {
+      const q = document.getElementById('crmSearch') ? document.getElementById('crmSearch').value.trim() : '';
+      try {
+        const url = `${API_BASE}/api/v1/growth/leads?limit=200` + (q ? `&search=${encodeURIComponent(q)}` : '');
+        const resp = await fetch(url, { headers: { 'X-API-Key': getApiKey() } });
+        const data = await resp.json();
+        document.getElementById('crmCountBadge').textContent = data.count || 0;
+        if (data.total_annual_recoverable_pipeline !== undefined) {
+          document.getElementById('crmTotalPipeline').textContent = `$${Number(data.total_annual_recoverable_pipeline).toLocaleString()}/yr`;
+        }
+        const tbody = document.getElementById('crmLeadsBody');
+        tbody.innerHTML = "";
+        (data.leads || []).forEach(lead => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50";
+
+          const tdClinic = document.createElement('td');
+          tdClinic.className = "py-2.5 px-3";
+          const bName = document.createElement('div');
+          bName.className = "font-bold text-slate-900";
+          bName.textContent = lead.clinic_name;
+          const sNpi = document.createElement('div');
+          sNpi.className = "text-[11px] font-mono text-slate-500";
+          sNpi.textContent = `NPI: ${lead.npi} (${lead.enumeration_type || 'NPI-2'})`;
+          tdClinic.appendChild(bName);
+          tdClinic.appendChild(sNpi);
+
+          const tdDm = document.createElement('td');
+          tdDm.className = "py-2.5 px-3";
+          const dName = document.createElement('div');
+          dName.className = "font-semibold text-slate-800";
+          dName.textContent = lead.decision_maker_name;
+          const dTitle = document.createElement('div');
+          dTitle.className = "text-[11px] text-slate-500";
+          dTitle.textContent = lead.decision_maker_title;
+          tdDm.appendChild(dName);
+          tdDm.appendChild(dTitle);
+
+          const tdSpec = document.createElement('td');
+          tdSpec.className = "py-2.5 px-3 text-slate-700";
+          tdSpec.textContent = lead.specialty;
+
+          const tdLoc = document.createElement('td');
+          tdLoc.className = "py-2.5 px-3";
+          const dPhone = document.createElement('div');
+          dPhone.className = "font-mono font-bold text-indigo-700";
+          dPhone.textContent = lead.phone;
+          const dCity = document.createElement('div');
+          dCity.className = "text-[11px] text-slate-500";
+          dCity.textContent = `${lead.city}, ${lead.state} ${lead.zip || ''}`;
+          tdLoc.appendChild(dPhone);
+          tdLoc.appendChild(dCity);
+
+          const tdUpside = document.createElement('td');
+          tdUpside.className = "py-2.5 px-3 font-bold text-emerald-700";
+          tdUpside.textContent = `+$${Number(lead.estimated_total_annual_upside || 0).toLocaleString()}/yr`;
+
+          const tdStage = document.createElement('td');
+          tdStage.className = "py-2.5 px-3";
+          const sel = document.createElement('select');
+          sel.className = "text-xs border rounded px-2 py-1 bg-white font-semibold";
+          ["NEW_SCRAPED", "CONTACTED", "DEMO_BOOKED", "PILOT_ACTIVE", "CLOSED_WON"].forEach(st => {
+            const opt = document.createElement('option');
+            opt.value = st;
+            opt.textContent = st;
+            if (lead.status === st) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', () => updateLeadStatus(lead.lead_id, sel.value));
+          tdStage.appendChild(sel);
+
+          const tdAct = document.createElement('td');
+          tdAct.className = "py-2.5 px-3 text-right";
+          const btnPitch = document.createElement('button');
+          btnPitch.className = "px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded shadow text-xs";
+          btnPitch.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Generate Pitch`;
+          btnPitch.addEventListener('click', () => {
+            window._campaignLoaded = true;
+            switchTab('sales');
+            generateCampaignForLead(lead.lead_id);
+          });
+          tdAct.appendChild(btnPitch);
+
+          tr.appendChild(tdClinic);
+          tr.appendChild(tdDm);
+          tr.appendChild(tdSpec);
+          tr.appendChild(tdLoc);
+          tr.appendChild(tdUpside);
+          tr.appendChild(tdStage);
+          tr.appendChild(tdAct);
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("CRM load err", err);
+      }
+    }
+
+    async function scrapeMoreLeads() {
+      const btn = document.getElementById('btnLiveScrape');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Querying CMS NPPES...`;
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/growth/leads/scrape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({
+            taxonomy_description: document.getElementById('scrapeSpecialty').value,
+            city: document.getElementById('scrapeCity').value,
+            state: document.getElementById('scrapeState').value,
+            limit: 25
+          })
+        });
+        const data = await resp.json();
+        alert(`Scraped ${data.scraped_count} verified clinics from CMS NPPES Registry and synced to CRM!`);
+        loadCrmLeads();
+      } catch (e) {
+        alert("Live scrape error: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-satellite-dish mr-1"></i> Scrape Live NPPES Clinics`;
+      }
+    }
+
+    async function updateLeadStatus(leadId, status) {
+      try {
+        await fetch(`${API_BASE}/api/v1/growth/leads/${encodeURIComponent(leadId)}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({ status })
+        });
+      } catch (e) {}
+    }
+
+    // ---------------- TAB 6: Sales Scripts, SMS, Cold Emails & ROI ----------------
+    async function runRoiCalculator() {
+      const payload = {
+        monthly_claims: Number(document.getElementById('roiClaims').value || 750),
+        avg_claim_amount: Number(document.getElementById('roiAvgClaim').value || 195),
+        current_biller_pct: Number(document.getElementById('roiBillerPct').value || 6.0),
+        current_denial_rate_pct: Number(document.getElementById('roiDenialPct').value || 12.0)
+      };
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/growth/roi-calculator`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        const fb = data.financial_breakdown;
+        document.getElementById('roiTotalAnnual').textContent = `$${Number(fb.total_annual_net_gain).toLocaleString()}/yr`;
+        document.getElementById('roiMonthlyGain').textContent = `+$${Number(fb.monthly_net_gain).toLocaleString()}/mo cashflow`;
+        document.getElementById('roiDenialsRecovered').textContent = `$${Number(fb.recovered_denials_8tier_scrutiny).toLocaleString()}/yr`;
+        document.getElementById('roiEmUplift').textContent = `$${Number(fb.em_mdm_undercoding_uplift).toLocaleString()}/yr`;
+        document.getElementById('roiMultiple').textContent = `${fb.roi_multiple} ROI`;
+        document.getElementById('roiPayback').textContent = `Payback in ${fb.payback_period_days} days`;
+      } catch (e) {}
+    }
+
+    async function generateCampaignForLead(leadId) {
+      window._campaignLoaded = true;
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/growth/campaign/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({ lead_id: leadId })
+        });
+        const data = await resp.json();
+        const ls = data.lead_summary;
+        document.getElementById('campaignTargetTitle').textContent = `${ls.clinic_name} — ${ls.decision_maker}`;
+        document.getElementById('campaignTargetSub').textContent = `NPI: ${ls.npi} | Specialty: ${ls.specialty} | Location: ${ls.location} | Direct Phone: ${ls.phone} | Est. Annual Upside: $${Number(ls.estimated_total_annual_upside).toLocaleString()}/yr`;
+
+        // Render Call Scripts
+        const callDiv = document.getElementById('callScriptsContainer');
+        callDiv.innerHTML = "";
+        const sections = [
+          ["1. Gatekeeper Bypass (Front Desk)", data.call_scripts["1_gatekeeper_bypass"]],
+          ["2. Decision Maker Opener (30-Sec Hook)", data.call_scripts["2_decision_maker_opener"]],
+          ["3. 6-Stage AI Engine Value Pitch", data.call_scripts["3_core_value_pitch"]],
+          ["4. Close for 12-Min Live 3-Chart Audit", data.call_scripts["4_close_for_live_audit"]]
+        ];
+        sections.forEach(([label, text]) => {
+          const card = document.createElement('div');
+          card.className = "p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1";
+          const hdr = document.createElement('div');
+          hdr.className = "font-bold text-indigo-900";
+          hdr.textContent = label;
+          const body = document.createElement('p');
+          body.className = "text-slate-700 whitespace-pre-wrap leading-relaxed";
+          body.textContent = text;
+          card.appendChild(hdr);
+          card.appendChild(body);
+          callDiv.appendChild(card);
+        });
+
+        // Objection battlecards
+        (data.call_scripts["5_objection_battlecards"] || []).forEach(obj => {
+          const card = document.createElement('div');
+          card.className = "p-3 bg-amber-50/70 border border-amber-200 rounded-lg space-y-1";
+          const q = document.createElement('div');
+          q.className = "font-bold text-amber-950";
+          q.textContent = `Objection: ${obj.objection}`;
+          const a = document.createElement('p');
+          a.className = "text-slate-700";
+          a.textContent = obj.rebuttal;
+          card.appendChild(q);
+          card.appendChild(a);
+          callDiv.appendChild(card);
+        });
+
+        // Render SMS
+        const smsDiv = document.getElementById('smsContainer');
+        smsDiv.innerHTML = "";
+        (data.sms_sequences || []).forEach(s => {
+          const card = document.createElement('div');
+          card.className = "p-3 bg-indigo-50/50 border border-indigo-100 rounded-lg";
+          const hdr = document.createElement('div');
+          hdr.className = "font-bold text-indigo-950 mb-1";
+          hdr.textContent = `${s.step} -> ${s.to}`;
+          const msg = document.createElement('p');
+          msg.className = "text-slate-700 font-mono text-[11px]";
+          msg.textContent = s.message;
+          card.appendChild(hdr);
+          card.appendChild(msg);
+          smsDiv.appendChild(card);
+        });
+
+        // Render 5-Touch Emails
+        const emailDiv = document.getElementById('emailContainer');
+        emailDiv.innerHTML = "";
+        (data.email_sequences || []).forEach(em => {
+          const card = document.createElement('div');
+          card.className = "p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5";
+          const hdr = document.createElement('div');
+          hdr.className = "font-bold text-slate-900";
+          hdr.textContent = `Touch ${em.touch} (${em.day}) — Subject: ${em.subject}`;
+          const body = document.createElement('pre');
+          body.className = "text-slate-700 whitespace-pre-wrap font-sans leading-relaxed";
+          body.textContent = em.body;
+          card.appendChild(hdr);
+          card.appendChild(body);
+          emailDiv.appendChild(card);
+        });
+      } catch (err) {
+        console.error("Campaign gen err", err);
+      }
+    }
+
+    // ---------------- TAB 7: AI Coder & Office Ally Pre-Flight Assistant ----------------
+    function setAssistantPreset(q) {
+      document.getElementById('assistantQueryInput').value = q;
+      askCodingAssistant();
+    }
+
+    async function askCodingAssistant() {
+      const btn = document.getElementById('btnAskAssistant');
+      const out = document.getElementById('assistantAskOutput');
+      const query = document.getElementById('assistantQueryInput').value.trim();
+      const allowOpenFda = document.getElementById('assistantOpenFdaLive').checked;
+      btn.disabled = true;
+      out.textContent = "Querying deterministic 2026 standards knowledge base...";
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/assistant/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({ query, allow_openfda_live: allowOpenFda })
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          out.textContent = data.detail || "Authentication required (enter API Key at top right).";
+          return;
+        }
+        out.replaceChildren();
+
+        const hdr = document.createElement('div');
+        hdr.className = "flex items-center justify-between mb-2 pb-2 border-b border-slate-200";
+        const statusSpan = document.createElement('span');
+        statusSpan.className = data.verified
+          ? "px-2.5 py-0.5 rounded-full text-[11px] font-bold badge-pass"
+          : "px-2.5 py-0.5 rounded-full text-[11px] font-bold badge-flag";
+        statusSpan.textContent = data.verified
+          ? "VERIFIED — CITATION-GROUNDED"
+          : `${data.status || 'ABSTAINED_UNVERIFIED'} — ZERO-HALLUCINATION GUARD`;
+        hdr.appendChild(statusSpan);
+        out.appendChild(hdr);
+
+        const ans = document.createElement('p');
+        ans.className = "text-slate-800 leading-relaxed mb-3 whitespace-pre-wrap";
+        ans.textContent = data.answer || "";
+        out.appendChild(ans);
+
+        if (data.citations && data.citations.length > 0) {
+          const cTitle = document.createElement('div');
+          cTitle.className = "font-bold text-indigo-950 uppercase tracking-wider text-[11px] mb-1.5";
+          cTitle.textContent = `Authoritative Citations (${data.citations.length})`;
+          out.appendChild(cTitle);
+          const cList = document.createElement('div');
+          cList.className = "space-y-1.5";
+          data.citations.forEach(c => {
+            const cCard = document.createElement('div');
+            cCard.className = "p-2 bg-white border border-indigo-100 rounded-lg";
+            const s1 = document.createElement('div');
+            s1.className = "font-bold text-indigo-800 text-[11px]";
+            s1.textContent = `${c.source} — ${c.section}`;
+            const s2 = document.createElement('div');
+            s2.className = "text-slate-600 text-[11px] mt-0.5";
+            s2.textContent = c.summary || "";
+            cCard.appendChild(s1);
+            cCard.appendChild(s2);
+            cList.appendChild(cCard);
+          });
+          out.appendChild(cList);
+        }
+      } catch (err) {
+        out.textContent = "Assistant request failed: " + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function loadCodeCheckPreset(mode) {
+      if (mode === 'snf_clean') {
+        document.getElementById('ccCptInput').value = "99305";
+        document.getElementById('ccIcdInput').value = "I69.354, I10, E11.9";
+        document.getElementById('ccPosInput').value = "31";
+        document.getElementById('ccPayerInput').value = "QMB";
+        document.getElementById('ccProvInput').value = "MD";
+        document.getElementById('ccNdcCode').value = "";
+      } else if (mode === 'ndc_jcode') {
+        document.getElementById('ccCptInput').value = "99214-25, 20610, J1100";
+        document.getElementById('ccIcdInput').value = "M17.11, I10";
+        document.getElementById('ccPosInput').value = "11";
+        document.getElementById('ccPayerInput').value = "MEDICARE";
+        document.getElementById('ccProvInput').value = "MD";
+        document.getElementById('ccNdcCode').value = "0009-0047-22";
+        document.getElementById('ccNdcQty').value = "1";
+        document.getElementById('ccNdcUnit').value = "ML";
+      } else {
+        document.getElementById('ccCptInput').value = "99214, 17000, J1100";
+        document.getElementById('ccIcdInput').value = "E11, M25.561, M17.11";
+        document.getElementById('ccPosInput').value = "31";
+        document.getElementById('ccPayerInput').value = "MEDICARE";
+        document.getElementById('ccProvInput').value = "APRN";
+        document.getElementById('ccNdcCode').value = "";
+      }
+      runAssistantCodeCheck();
+    }
+
+    async function runAssistantCodeCheck() {
+      const btn = document.getElementById('btnRunCodeCheck');
+      const out = document.getElementById('assistantCodeCheckOutput');
+      btn.disabled = true;
+      out.textContent = "Running deterministic CPT / ICD-10 / POS / NCCI / LCD / NDC verification...";
+
+      const cpts = document.getElementById('ccCptInput').value.split(',').map(s => s.trim()).filter(Boolean);
+      const icds = document.getElementById('ccIcdInput').value.split(',').map(s => s.trim()).filter(Boolean);
+      const ndcRaw = document.getElementById('ccNdcCode').value.trim();
+      const ndcPayload = ndcRaw ? {
+        ndc: ndcRaw,
+        quantity: Number(document.getElementById('ccNdcQty').value || 1),
+        unit: document.getElementById('ccNdcUnit').value
+      } : null;
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/assistant/code-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({
+            cpt_codes: cpts,
+            icd10_codes: icds,
+            pos: document.getElementById('ccPosInput').value,
+            payer_type: document.getElementById('ccPayerInput').value,
+            provider_type: document.getElementById('ccProvInput').value,
+            ndc: ndcPayload
+          })
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          out.textContent = data.detail || "Authentication required (enter API Key at top right).";
+          return;
+        }
+        out.replaceChildren();
+
+        const hdr = document.createElement('div');
+        hdr.className = "flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-200";
+        const bdg = document.createElement('span');
+        bdg.className = data.verified
+          ? "px-2.5 py-0.5 rounded-full text-[11px] font-bold badge-pass"
+          : "px-2.5 py-0.5 rounded-full text-[11px] font-bold badge-err";
+        bdg.textContent = data.verified
+          ? "CLEAN — ALL DETERMINISTIC CODE CHECKS PASSED"
+          : `BLOCKED — ${(data.issues || []).length} ISSUE(S) DETECTED`;
+        hdr.appendChild(bdg);
+        if (data.ndc_check && data.ndc_check.normalized_ndc_11) {
+          const ndcSpan = document.createElement('span');
+          ndcSpan.className = "font-mono text-[11px] px-2 py-0.5 rounded bg-indigo-100 text-indigo-900 font-semibold";
+          ndcSpan.textContent = `Loop 2410 LIN*N4: ${data.ndc_check.normalized_ndc_11}`;
+          hdr.appendChild(ndcSpan);
+        }
+        out.appendChild(hdr);
+
+        if (data.issues && data.issues.length > 0) {
+          const issWrap = document.createElement('div');
+          issWrap.className = "space-y-1.5 mb-3";
+          data.issues.forEach(iss => {
+            const d = document.createElement('div');
+            d.className = iss.severity === "CRITICAL"
+              ? "p-2 bg-rose-50 border-l-4 border-rose-600 rounded text-rose-950"
+              : "p-2 bg-amber-50 border-l-4 border-amber-500 rounded text-amber-950";
+            const st = document.createElement('strong');
+            st.textContent = `[${iss.severity}] ${iss.code}: `;
+            const sp = document.createElement('span');
+            sp.textContent = iss.message;
+            d.appendChild(st);
+            d.appendChild(sp);
+            issWrap.appendChild(d);
+          });
+          out.appendChild(issWrap);
+        }
+
+        if (data.non_billable_suggestions && Object.keys(data.non_billable_suggestions).length > 0) {
+          const nb = document.createElement('div');
+          nb.className = "p-2.5 bg-amber-50 border border-amber-200 rounded-lg mb-3";
+          const nbTitle = document.createElement('div');
+          nbTitle.className = "font-bold text-amber-950 mb-1";
+          nbTitle.textContent = "Billable FY2026 ICD-10-CM Leaf Alternatives:";
+          nb.appendChild(nbTitle);
+          Object.entries(data.non_billable_suggestions).forEach(([hdrCode, leaves]) => {
+            const p = document.createElement('div');
+            p.className = "font-mono text-[11px] text-slate-700";
+            p.textContent = `${hdrCode} -> ${(leaves || []).slice(0, 5).map(l => `${l.code} (${l.description})`).join('; ')}`;
+            nb.appendChild(p);
+          });
+          out.appendChild(nb);
+        }
+
+        if (data.reimbursement_and_payer_notes && data.reimbursement_and_payer_notes.length > 0) {
+          const notesBox = document.createElement('div');
+          notesBox.className = "p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-lg mb-3 space-y-1";
+          data.reimbursement_and_payer_notes.forEach(n => {
+            const p = document.createElement('div');
+            p.className = "text-[11px] text-indigo-950";
+            p.textContent = `• ${n}`;
+            notesBox.appendChild(p);
+          });
+          out.appendChild(notesBox);
+        }
+
+        if (data.citations && data.citations.length > 0) {
+          const citDiv = document.createElement('div');
+          citDiv.className = "text-[11px] text-slate-600 space-y-1";
+          data.citations.slice(0, 5).forEach(c => {
+            const row = document.createElement('div');
+            row.textContent = `§ ${c.source} (${c.section})`;
+            citDiv.appendChild(row);
+          });
+          out.appendChild(citDiv);
+        }
+      } catch (err) {
+        out.textContent = "Code check error: " + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function loadOaPreflightSample(kind) {
+      if (kind === 'clean') {
+        document.getElementById('oaFilenameInput').value = "OATEST_SNF_BATCH_NOV26_0.837";
+        document.getElementById('oaVerifiedSubInput').value = "SFLREHAB01";
+        document.getElementById('oaEdiInput').value = [
+          "ISA*00*          *00*          *ZZ*SFLREHAB01     *30*330897513      *261114*1200*^*00501*000000001*0*T*:~",
+          "GS*HC*SFLREHAB01*330897513*20261114*1200*1*X*005010X222A1~",
+          "ST*837*0001*005010X222A1~",
+          "BHT*0019*00*ENC-OA-SNF-001*20261114*1200*CH~",
+          "NM1*41*2*SOUTH FLORIDA REHAB PHYSICIANS PA*****46*SFLREHAB01~",
+          "PER*IC*BILLING DEPT*TE*3055550100~",
+          "NM1*40*2*OFFICE ALLY*****46*330897513~",
+          "HL*1**20*1~",
+          "PRV*BI*PXC*208100000X~",
+          "NM1*85*2*SOUTH FLORIDA REHAB PHYSICIANS PA*****XX*1447249149~",
+          "N3*2100 PONCE DE LEON BLVD~",
+          "N4*CORAL GABLES*FL*331345207~",
+          "REF*EI*843216540~",
+          "HL*2*1*22*0~",
+          "SBR*P*18*******MB~",
+          "NM1*IL*1*BRATTON-LYNCH*CAROL****MI*2R47DQ7TT56~",
+          "N3*3492 FOXCROFT RD APT 203~",
+          "N4*MIRAMAR*FL*33025~",
+          "DMG*D8*19610405*F~",
+          "NM1*PR*2*MEDICARE FLORIDA FIRST COAST*****PI*09102~",
+          "N3*PO BOX 1000~",
+          "N4*JACKSONVILLE*FL*32202~",
+          "CLM*ENC-OA-SNF-001*160.00***31:B:1*Y*A*Y*Y~",
+          "DTP*435*D8*20261015~",
+          "HI*ABK:I69354*ABF:I10~",
+          "NM1*82*1*EFTEKHARI*NASSER****XX*1356442776~",
+          "PRV*PE*PXC*208100000X~",
+          "NM1*77*2*GLADES WEST REHABILITATION AND NURSING CENTER*****XX*1669882411~",
+          "N3*15955 BASS CREEK ROAD~",
+          "N4*MIRAMAR*FL*330270301~",
+          "LX*1~",
+          "SV1*HC:99305*160.00*UN*1***1:2~",
+          "DTP*472*D8*20261019~",
+          "SE*32*0001~",
+          "GE*1*1~",
+          "IEA*1*000000001~"
+        ].join("\n");
+      } else {
+        document.getElementById('oaFilenameInput').value = "LIVE_BATCH_NOV26_0.837";
+        document.getElementById('oaVerifiedSubInput').value = "";
+        document.getElementById('oaEdiInput').value = [
+          "ISA*00*          *00*          *ZZ*MAGNOLIA_HEALTH*30*330897513      *261114*1200*^*00501*000000001*0*T*:~",
+          "GS*HC*MAGNOLIA_HEALTH*330897513*20261114*1200*1*X*005010X222A1~",
+          "ST*837*0001*005010X222A1~",
+          "BHT*0019*00*ENC-BAD-001*20261114*1200*CH~",
+          "NM1*41*2*BILLING ENTITY NOT CONFIGURED*****46*MAGNOLIA_HEALTH~",
+          "PER*IC*BILLING DEPT*TE*8005551212~",
+          "NM1*40*2*OFFICE ALLY*****46*330897513~",
+          "HL*1**20*1~",
+          "PRV*BI*PXC*207Q00000X~",
+          "NM1*85*2*BILLING ENTITY NOT CONFIGURED*****XX*0000000000~",
+          "N3*1200 BRICKELL AVE~",
+          "N4*MIAMI*FL*33131~",
+          "REF*EI*591234567~",
+          "HL*2*1*22*0~",
+          "SBR*P*18*******MB~",
+          "NM1*IL*1*DOE*JOHN****MI*BXC3F49DT93~",
+          "N3*450 BISCAYNE BLVD~",
+          "N4*MIAMI*FL*33132~",
+          "DMG*D8*19500101*M~",
+          "NM1*PR*2*MEDICARE FL*****PI*00901~",
+          "N3*PO BOX 1000~",
+          "N4*JACKSONVILLE*FL*32202~",
+          "CLM*ENC-BAD-001*160.00***31:B:1*Y*A*Y*Y~",
+          "HI*ABK:I10~",
+          "NM1*82*1*EFTEKHARI*NASSER****XX*1356442776~",
+          "PRV*PE*PXC*207Q00000X~",
+          "LX*1~",
+          "SV1*HC:99305*160.00*UN*1***1~",
+          "DTP*472*D8*20261019~",
+          "SE*28*0001~",
+          "GE*1*1~",
+          "IEA*1*000000001~"
+        ].join("\n");
+      }
+    }
+
+    async function runOaPreflightCheck() {
+      const btn = document.getElementById('btnRunOaPreflight');
+      const out = document.getElementById('oaPreflightOutput');
+      btn.disabled = true;
+      out.textContent = "Auditing .837 batch against Office Ally 5010A1 Companion Guide & pyx12 schema...";
+
+      const subId = document.getElementById('oaVerifiedSubInput').value.trim();
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/office-ally/preflight`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': getApiKey() },
+          body: JSON.stringify({
+            edi_content: document.getElementById('oaEdiInput').value,
+            filename: document.getElementById('oaFilenameInput').value.trim() || null,
+            run_pyx12: document.getElementById('oaRunPyx12').checked,
+            verified_submitter_ids: subId ? [subId] : null
+          })
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          out.textContent = data.detail || "Authentication required (enter API Key at top right).";
+          return;
+        }
+        out.replaceChildren();
+
+        // Top Verdict Row
+        const top = document.createElement('div');
+        top.className = "flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200";
+        const readyBadge = document.createElement('span');
+        readyBadge.className = data.ready_for_office_ally
+          ? "px-3 py-1 rounded-full text-xs font-bold badge-pass"
+          : "px-3 py-1 rounded-full text-xs font-bold badge-err";
+        readyBadge.textContent = data.ready_for_office_ally
+          ? `READY FOR OFFICE ALLY (${data.claim_count} Claim(s), 0 Errors)`
+          : `BLOCKED — ${data.error_count} Pre-Flight Error(s), ${data.warning_count} Warning(s)`;
+
+        const pyxBadge = document.createElement('span');
+        pyxBadge.className = data.pyx12_clean
+          ? "px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-emerald-100 text-emerald-900"
+          : "px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-rose-100 text-rose-900";
+        pyxBadge.textContent = data.pyx12_clean ? "pyx12 5010A1: 0 ERRORS" : "pyx12 5010A1: SCHEMA FAIL";
+
+        top.appendChild(readyBadge);
+        top.appendChild(pyxBadge);
+        out.appendChild(top);
+
+        // 3-Channel Readiness Summary
+        if (data.channels) {
+          const chGrid = document.createElement('div');
+          chGrid.className = "grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3";
+          const chEntries = [
+            ["1. Web Portal (Online Claim Fix)", data.channels.web_portal_service_center?.ready_for_manual_upload, data.channels.web_portal_service_center?.url],
+            ["2. Automated SFTP Batch", data.channels.sftp_batch_clearinghouse?.ready, `${data.channels.sftp_batch_clearinghouse?.host || 'ftp10.officeally.com'}:22`],
+            ["3. CAQH CORE 270/271 SOAP", data.channels.caqh_core_soap_realtime_270_271?.ready, "wsd.officeally.com (rtx.svc)"]
+          ];
+          chEntries.forEach(([label, ok, sub]) => {
+            const c = document.createElement('div');
+            c.className = "p-2.5 bg-white border border-slate-200 rounded-lg";
+            const t = document.createElement('div');
+            t.className = "font-bold text-slate-800 text-[11px]";
+            t.textContent = label;
+            const s = document.createElement('div');
+            s.className = "font-mono text-[10px] text-slate-500 mt-0.5";
+            s.textContent = sub;
+            const st = document.createElement('span');
+            st.className = ok
+              ? "inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold badge-pass"
+              : "inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold badge-flag";
+            st.textContent = ok ? "CONFIGURED" : "NEEDS ENV CREDS";
+            c.appendChild(t);
+            c.appendChild(s);
+            c.appendChild(st);
+            chGrid.appendChild(c);
+          });
+          out.appendChild(chGrid);
+        }
+
+        // Issues List
+        if (data.issues && data.issues.length > 0) {
+          const list = document.createElement('div');
+          list.className = "space-y-1.5 max-h-60 overflow-y-auto pr-1";
+          data.issues.forEach(iss => {
+            const row = document.createElement('div');
+            row.className = iss.severity === "ERROR"
+              ? "p-2 bg-rose-50 border-l-4 border-rose-600 rounded text-rose-950"
+              : "p-2 bg-amber-50 border-l-4 border-amber-500 rounded text-amber-950";
+            const meta = [iss.severity, iss.rule_id, iss.claim_pcn, iss.segment].filter(Boolean).join(" • ");
+            const hd = document.createElement('div');
+            hd.className = "font-mono font-bold text-[11px]";
+            hd.textContent = meta;
+            const msg = document.createElement('div');
+            msg.className = "text-[11px] mt-0.5";
+            msg.textContent = iss.message;
+            row.appendChild(hd);
+            row.appendChild(msg);
+            list.appendChild(row);
+          });
+          out.appendChild(list);
+        } else {
+          const okMsg = document.createElement('div');
+          okMsg.className = "p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 font-semibold";
+          okMsg.textContent = "All 8 Office Ally Companion Guide & CMS 5010A1 Front-End Edit Suites Passed with Zero Rejections.";
+          out.appendChild(okMsg);
+        }
+      } catch (err) {
+        out.textContent = "Office Ally preflight error: " + err.message;
+      } finally {
+        btn.disabled = false;
       }
     }
 

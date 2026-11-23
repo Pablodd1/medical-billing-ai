@@ -5,10 +5,16 @@
 
 import re
 import os
+import sys
 import json
 
-def get_manifest():
-    step_file = r"C:\Users\Owner\.gemini\antigravity\brain\0226c4b0-2b08-4e4e-ba17-2f55c9f6b3c8\.system_generated\steps\1479\output.txt"
+def get_manifest(step_file: str = ""):
+    step_file = (
+        step_file
+        or (sys.argv[1] if len(sys.argv) > 1 else "")
+        or os.environ.get("DRIVE_MANIFEST_HTML", "")
+        or r"C:\Users\Owner\.gemini\antigravity\brain\0226c4b0-2b08-4e4e-ba17-2f55c9f6b3c8\.system_generated\steps\1479\output.txt"
+    )
     if not os.path.exists(step_file):
         return {}
     with open(step_file, "r", encoding="utf-8") as f:

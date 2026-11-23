@@ -75,6 +75,24 @@ CREATE TABLE IF NOT EXISTS claim_fingerprints (
     patient_control_number TEXT,
     registered_at TEXT
 );
+CREATE TABLE IF NOT EXISTS crm_leads (
+    lead_id TEXT PRIMARY KEY,
+    npi TEXT,
+    clinic_name TEXT,
+    decision_maker_name TEXT,
+    decision_maker_title TEXT,
+    specialty TEXT,
+    phone TEXT,
+    city TEXT,
+    state TEXT,
+    estimated_annual_billing REAL,
+    estimated_total_annual_upside REAL,
+    pain_point_hook TEXT,
+    status TEXT DEFAULT 'NEW_SCRAPED',
+    notes TEXT DEFAULT '',
+    lead_json TEXT,
+    updated_at TEXT
+);
 """
 
 _FINAL_STATUSES = {"PAID", "DENIED", "REJECTED_999", "REJECTED_277CA", "REJECTED_TA1"}
@@ -422,6 +440,138 @@ class ClaimLedger:
         try:
             rows = conn.execute("SELECT fingerprint FROM claim_fingerprints").fetchall()
             return {r[0] for r in rows}
+        finally:
+            conn.close()
+
+    # ---------- CRM & Outbound Lead Management ----------
+    def upsert_crm_leads(self, leads: List[Dict[str, Any]]) -> int:
+        """Inserts or updates scraped medical clinic leads in the persistent CRM table."""
+        if not leads:
+            return 0
+        conn = self._connect()
+        count = 0
+        try:
+            now = self._now()
+            for l in leads:
+                lead_id = l.get("lead_id") or f"LEAD-{l.get('npi', '')}"
+                conn.execute(
+                    "INSERT INTO crm_leads (lead_id, npi, clinic_name, decision_maker_name,"
+                    " decision_maker_title, specialty, phone, city, state,"
+                    " estimated_annual_billing, estimated_total_annual_upside,"
+                    " pain_point_hook, status, notes, lead_json, updated_at)"
+                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                    " ON CONFLICT(lead_id) DO UPDATE SET"
+                    " clinic_name=excluded.clinic_name,"
+                    " decision_maker_name=excluded.decision_maker_name,"
+                    " phone=excluded.phone,"
+                    " estimated_total_annual_upside=excluded.estimated_total_annual_upside,"
+                    " lead_json=excluded.lead_json,"
+                    " updated_at=excluded.updated_at",
+                    (
+                        lead_id,
+                        str(l.get("npi", "")),
+                        l.get("clinic_name", ""),
+                        l.get("decision_maker_name", ""),
+                        l.get("decision_maker_title", ""),
+                        l.get("specialty", ""),
+                        l.get("phone", ""),
+                        l.get("city", ""),
+                        l.get("state", "FL"),
+                        float(l.get("estimated_annual_billing", 0) or 0),
+                        float(l.get("estimated_total_annual_upside", 0) or 0),
+                        l.get("pain_point_hook", ""),
+                        l.get("status", "NEW_SCRAPED"),
+                        l.get("notes", ""),
+                        json.dumps(l),
+                        now,
+                    ),
+                )
+                count += 1
+            conn.commit()
+            return count
+        finally:
+            conn.close()
+
+    def get_crm_leads(
+        self,
+        specialty: Optional[str] = None,
+        city: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[Dict[str, Any]]:
+        """Queries CRM leads with optional filters."""
+        conn = self._connect()
+        try:
+            count_row = conn.execute("SELECT COUNT(*) c FROM crm_leads").fetchone()
+            if count_row and count_row["c"] == 0:
+                # Auto-seed from leads/scraped_medical_clinics.json if present
+                seed_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    "leads",
+                    "scraped_medical_clinics.json",
+                )
+                if os.path.exists(seed_path):
+                    try:
+                        with open(seed_path, "r", encoding="utf-8") as f:
+                            seed_leads = json.load(f)
+                        self.upsert_crm_leads(seed_leads)
+                    except Exception:
+                        pass
+
+            sql = "SELECT * FROM crm_leads WHERE 1=1"
+            params: List[Any] = []
+            if specialty:
+                sql += " AND LOWER(specialty) LIKE ?"
+                params.append(f"%{specialty.lower()}%")
+            if city:
+                sql += " AND LOWER(city) LIKE ?"
+                params.append(f"%{city.lower()}%")
+            if status:
+                sql += " AND status = ?"
+                params.append(status)
+            if search:
+                sql += " AND (LOWER(clinic_name) LIKE ? OR LOWER(decision_maker_name) LIKE ? OR npi LIKE ?)"
+                q = f"%{search.lower()}%"
+                params.extend([q, q, q])
+            sql += " ORDER BY estimated_total_annual_upside DESC LIMIT ?"
+            params.append(int(limit))
+
+            rows = conn.execute(sql, params).fetchall()
+            out = []
+            for r in rows:
+                d = dict(r)
+                try:
+                    full = json.loads(d.pop("lead_json", "{}") or "{}")
+                except Exception:
+                    full = {}
+                merged = {**full, **d}
+                out.append(merged)
+            return out
+        finally:
+            conn.close()
+
+    def update_crm_lead_status(self, lead_id: str, status: str, notes: str = "") -> Optional[Dict[str, Any]]:
+        """Updates a clinic lead's sales pipeline status and notes."""
+        conn = self._connect()
+        try:
+            now = self._now()
+            conn.execute(
+                "UPDATE crm_leads SET status=?, notes=?, updated_at=? WHERE lead_id=? OR npi=?",
+                (status, notes, now, lead_id, lead_id),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM crm_leads WHERE lead_id=? OR npi=?", (lead_id, lead_id)
+            ).fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            try:
+                full = json.loads(d.pop("lead_json", "{}") or "{}")
+            except Exception:
+                full = {}
+            return {**full, **d}
         finally:
             conn.close()
 

@@ -22,7 +22,12 @@ DATA_DIR = ROOT / "data" / "september_2026"
 FACILITY_ADDR = "15955 Bass Creek Road"
 PLACEHOLDER_TAX_ID = "591234567"
 PLACEHOLDER_PHONE = "8005551212"
-KNOWN_PAYERS = ("humana", "simply", "aetna", "cigna", "united", "molina", "sunshine", "wellcare")
+KNOWN_PAYERS = (
+    "humana", "simply", "aetna", "cigna", "united", "molina", "sunshine",
+    "wellcare", "florida blue", "devoted", "careplus", "avmed", "leon",
+    "medica", "preferred care", "doctors healthcare", "alignment", "clover",
+    "oscar", "ambetter", "medicaid", "qmb", "mcra", "tricare", "aarp",
+)
 NOISE_PAYER = re.compile(r"polic|pollc|pending|disab|eligib|dr\.", re.I)
 
 
@@ -38,8 +43,12 @@ def ocr_sex(text: str) -> str | None:
 
 
 def find_837(prefix: str) -> Path | None:
-    """Final or DRAFT consolidated 837 for this batch prefix."""
-    for name in (f"OFFICE_ALLY_BATCH_{prefix}.837", f"DRAFT_NOT_FOR_SUBMISSION_{prefix}.837"):
+    """Final, OATEST, or DRAFT consolidated 837 for this batch prefix."""
+    for name in (
+        f"OFFICE_ALLY_BATCH_{prefix}.837",
+        f"OATEST_OFFICE_ALLY_BATCH_{prefix}.837",
+        f"DRAFT_NOT_FOR_SUBMISSION_{prefix}.837",
+    ):
         if (EXPORTS / name).exists():
             return EXPORTS / name
     return None
@@ -58,11 +67,11 @@ def split_837(path: Path | None) -> dict[str, str]:
     return out
 
 
-def audit_row(row: dict) -> list[dict]:
+def audit_row(row: dict, data_dir: Path = DATA_DIR) -> list[dict]:
     """Return coder/biller review flags for one CLEAN claim row."""
     flags = []
     src = row["Source_PDF_File"]
-    ocr_path = DATA_DIR / f"{src}.ocr.txt"
+    ocr_path = data_dir / f"{src}.ocr.txt"
     text = ocr_path.read_text(encoding="utf-8", errors="replace") if ocr_path.exists() else ""
 
     sex = ocr_sex(text)
@@ -90,15 +99,16 @@ def audit_row(row: dict) -> list[dict]:
     return flags
 
 
-def build_rows(prefix: str) -> tuple[list[dict], dict]:
-    csv_path = EXPORTS / "september_2026_cms1500_biller_sheet.csv"
+def build_rows(prefix: str, data_dir: Path = DATA_DIR) -> tuple[list[dict], dict]:
+    slug = "september_2026" if prefix == "SEP26" else prefix.lower()
+    csv_path = EXPORTS / f"{slug}_cms1500_biller_sheet.csv"
     path_837 = find_837(prefix)
     claims_837 = split_837(path_837)
     rows = []
     with csv_path.open(encoding="utf-8-sig", newline="") as fh:
         for r in csv.DictReader(fh):
             queued = r["Review_Tier"] != "HOLD"
-            r["flags"] = audit_row(r) if queued else []
+            r["flags"] = audit_row(r, data_dir=data_dir) if queued else []
             if r["Review_Tier"] == "CODER_REVIEW":
                 r["flags"].append({"sev": "med", "code": "CODER_REVIEW", "msg": r["Action_Required_Or_Notes"]})
             r["edi"] = claims_837.get(r["Box26_Patient_Control_No"], "")
@@ -107,9 +117,20 @@ def build_rows(prefix: str) -> tuple[list[dict], dict]:
     edi_all = "".join(claims_837.values())
     globals_ = []
     if is_draft or not path_837:
-        globals_.append({"sev": "high", "msg": f"{path_837.name if path_837 else '837'} is a DRAFT: billing entity (Tax ID, Type-2 NPI, phone, address) is not configured or coder sign-off is pending. Do not upload."})
+        globals_.append({"sev": "high", "msg": f"{path_837.name if path_837 else '837'} is a DRAFT: billing entity (Tax ID, Type-2 NPI, phone, address + 9-digit ZIP+4) is not configured or coder sign-off is pending. Do not upload."})
     if f"REF*EI*{PLACEHOLDER_TAX_ID}" in edi_all or PLACEHOLDER_PHONE in edi_all:
         globals_.append({"sev": "high", "msg": "837 contains placeholder Tax ID or phone."})
+    preflight_path = EXPORTS / f"{slug}_oa_preflight.json"
+    if preflight_path.exists():
+        pf = json.loads(preflight_path.read_text(encoding="utf-8", errors="replace"))
+        globals_.append({
+            "sev": "low" if pf.get("pyx12_clean") else "high",
+            "msg": (
+                f"Office Ally 5010A1 Pre-Flight: pyx12_clean={pf.get('pyx12_clean')}, "
+                f"queued_claims={pf.get('claim_count')}, companion_errors={pf.get('error_count')}, "
+                f"warnings={pf.get('warning_count')}."
+            ),
+        })
     if not globals_:
         globals_.append({"sev": "low", "msg": "Billing entity configured and coder sign-off recorded. Present."})
     return rows, {"global": globals_}
@@ -150,7 +171,7 @@ pre{background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;overflow:aut
 <dialog id="d"><div class="h"><b id="dt"></b><button id="dc">Close</button></div><div class="b" id="db"></div></dialog>
 <script>
 const DATA=__DATA__;const G=__GLOBAL__;
-const COLS=[["Row_#","#"],["Box2_Patient_Name_Last_First","Patient"],["Box3_Patient_DOB","DOB"],["Box1a_Medicare_MBI","MBI"],["Box24A_Date_Of_Service","DOS"],["Box24D_CPT_Code","CPT"],["Box21_ICD10_A_Primary","Dx 1"],["Box32_Service_Facility_Name","Facility"],["Box28_Total_Charge_USD","Charge"],["Review_Tier","Tier"],["flags","Flags"]];
+const COLS=[["Row_#","#"],["Box2_Patient_Name_Last_First","Patient"],["Box3_Patient_DOB","DOB"],["Box1a_Medicare_MBI","MBI"],["Box9a_Secondary_Medicaid_ID","Box 9a Medicaid"],["Box9_QMB_Protection","QMB"],["Box24A_Date_Of_Service","DOS"],["Box18_SNF_Admission_Date","Box 18 Adm"],["Box24D_CPT_Code","CPT"],["Box21_ICD10_A_Primary","Dx 1"],["Box32_Service_Facility_Name","Facility"],["Box28_Total_Charge_USD","Charge"],["Review_Tier","Tier"],["flags","Flags"]];
 const $=s=>document.querySelector(s);let sortK=null,asc=true;
 const isClean=r=>r.Review_Tier!=="HOLD";
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
@@ -180,8 +201,8 @@ cards();banner();draw();
 </script></body></html>"""
 
 
-def build(prefix: str) -> Path:
-    rows, meta = build_rows(prefix)
+def build(prefix: str, data_dir: Path = DATA_DIR) -> Path:
+    rows, meta = build_rows(prefix, data_dir=data_dir)
     html = (PAGE.replace("__TITLE__", f"Batch Results {prefix}").replace("__BATCH__", prefix)
             .replace("__DATA__", json.dumps(rows).replace("</", "<\\/"))
             .replace("__GLOBAL__", json.dumps(meta)))
@@ -194,10 +215,11 @@ def build(prefix: str) -> Path:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--prefix", default="SEP26")
+    ap.add_argument("--data-dir", default="data/september_2026")
     ap.add_argument("--serve", action="store_true", help="serve on 127.0.0.1:8080")
     ap.add_argument("--port", type=int, default=8080)
     a = ap.parse_args()
-    out = build(a.prefix)
+    out = build(a.prefix, data_dir=ROOT / a.data_dir)
     print(f"Built {out}")
     if a.serve:
         handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(out.parent))

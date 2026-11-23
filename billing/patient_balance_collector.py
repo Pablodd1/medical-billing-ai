@@ -5,7 +5,10 @@
 
 from typing import Dict, Any, List
 from datetime import datetime
-from ..models.encounter import PatientBalanceStatement
+try:
+    from models.encounter import PatientBalanceStatement
+except ImportError:
+    from ..models.encounter import PatientBalanceStatement
 
 class PatientBalanceCollector:
     """
